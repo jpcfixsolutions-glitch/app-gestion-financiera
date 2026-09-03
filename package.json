@@ -1,39 +1,18 @@
 {
-  "name": "figma-make-app",
+  "name": "app-gestion-financiera-root",
   "private": true,
   "version": "1.0.0",
-  "type": "module",
   "scripts": {
-    "dev": "vite --host 0.0.0.0",
-    "dev:api": "tsx watch server/dev.ts",
-    "build": "vite build",
-    "preview": "vite preview",
-    "format": "oxfmt",
-    "db:generate": "drizzle-kit generate",
-    "db:push": "drizzle-kit push",
-    "db:seed": "tsx server/db/seed.ts",
-    "db:studio": "drizzle-kit studio"
-  },
-  "dependencies": {
-    "@hono/node-server": "^2.1.1",
-    "@libsql/client": "^0.17.4",
-    "dotenv": "^17.4.2",
-    "drizzle-orm": "^0.45.2",
-    "hono": "^4.13.5",
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0"
-  },
-  "devDependencies": {
-    "@tailwindcss/vite": "^4.0.0",
-    "@types/node": "^22.0.0",
-    "@types/react": "^19.0.0",
-    "@types/react-dom": "^19.0.0",
-    "@vitejs/plugin-react": "^6.0.0",
-    "drizzle-kit": "^0.31.10",
-    "oxfmt": "^0.2.0",
-    "tailwindcss": "^4.0.0",
-    "tsx": "^4.23.13",
-    "typescript": "^5.7.0",
-    "vite": "^8.0.5"
+    "dev": "pnpm --filter app-gestion-financiera-frontend dev",
+    "dev:frontend": "pnpm --filter app-gestion-financiera-frontend dev",
+    "dev:backend": "pnpm --filter app-gestion-financiera-backend dev",
+    "build:frontend": "pnpm --filter app-gestion-financiera-frontend build",
+    "build:backend": "pnpm --filter app-gestion-financiera-backend exec tsc --noEmit",
+    "db:generate": "pnpm --filter app-gestion-financiera-backend db:generate",
+    "db:push": "pnpm --filter app-gestion-financiera-backend db:push",
+    "db:seed": "pnpm --filter app-gestion-financiera-backend db:seed",
+    "db:user": "pnpm --filter app-gestion-financiera-backend db:user",
+    "db:studio": "pnpm --filter app-gestion-financiera-backend db:studio",
+    "format": "pnpm --filter app-gestion-financiera-frontend format"
   }
 }

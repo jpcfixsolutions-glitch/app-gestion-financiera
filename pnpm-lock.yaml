@@ -6,7 +6,9 @@ settings:
 
 importers:
 
-  .:
+  .: {}
+
+  backend:
     dependencies:
       '@hono/node-server':
         specifier: ^2.1.1
@@ -23,6 +25,22 @@ importers:
       hono:
         specifier: ^4.13.5
         version: 4.13.5
+    devDependencies:
+      '@types/node':
+        specifier: ^22.0.0
+        version: 22.19.17
+      drizzle-kit:
+        specifier: ^0.31.10
+        version: 0.31.10
+      tsx:
+        specifier: ^4.23.13
+        version: 4.23.13
+      typescript:
+        specifier: ^5.7.0
+        version: 5.9.3
+
+  frontend:
+    dependencies:
       react:
         specifier: ^19.0.0
         version: 19.2.4
@@ -45,18 +63,12 @@ importers:
       '@vitejs/plugin-react':
         specifier: ^6.0.0
         version: 6.0.1(vite@8.0.5(@types/node@22.19.17)(esbuild@0.28.2)(jiti@2.6.1)(tsx@4.23.13))
-      drizzle-kit:
-        specifier: ^0.31.10
-        version: 0.31.10
       oxfmt:
         specifier: ^0.2.0
         version: 0.2.0
       tailwindcss:
         specifier: ^4.0.0
         version: 4.2.2
-      tsx:
-        specifier: ^4.23.13
-        version: 4.23.13
       typescript:
         specifier: ^5.7.0
         version: 5.9.3
