@@ -48,3 +48,20 @@ export interface AppState {
   planes: Plan[]
   clientes: Cliente[]
 }
+
+export interface AuthTokenPayload {
+  sub: string
+  username: string
+  name: string
+  empresaId: string
+  rol: string
+  exp: number
+}
+
+export interface AppVariables {
+  authUser: AuthTokenPayload
+}
+
+export type AppBindings = {
+  Variables: AppVariables
+}

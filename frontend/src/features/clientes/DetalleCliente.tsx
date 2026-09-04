@@ -31,8 +31,6 @@ export interface DetalleClienteProps {
   setState: (fn: (prev: AppState) => AppState) => void
 
   setView: (v: View) => void
-
-  reload: () => Promise<void>
 }
 
 export default function DetalleCliente({
@@ -43,57 +41,47 @@ export default function DetalleCliente({
   setState,
 
   setView,
-
-  reload,
 }: DetalleClienteProps) {
   const [pagoModalidad, setPagoModalidad] = useState<Record<string, Modalidad>>(
     {},
   )
 
+  const [savingOperationId, setSavingOperationId] = useState<string | null>(
+    null,
+  )
+
+  const [paymentError, setPaymentError] = useState<string | null>(null)
+
   async function registrarPago(op: Operacion) {
+    if (savingOperationId) return
+
     const modalidadCobro = pagoModalidad[op.id] ?? op.modalidad
-
-    const key = modalidadCobro === "Efectivo" ? "efectivo" : "transferencia"
-
-    setState((prev) => {
-      const updated = prev.clientes.map((c) => {
-        if (c.id !== cliente.id) return c
-
-        return {
-          ...c,
-
-          operaciones: c.operaciones.map((o) => {
-            if (o.id !== op.id) return o
-
-            const pagados = o.pagosRealizados + 1
-
-            return { ...o, pagosRealizados: pagados }
-          }),
-        }
-      })
-
-      return {
-        ...prev,
-
-        clientes: updated,
-
-        activo: {
-          ...prev.activo,
-
-          [key]: Math.max(0, prev.activo[key] - op.cuotaValor),
-        },
-
-        caja: { ...prev.caja, [key]: prev.caja[key] + op.cuotaValor },
-      }
-    })
+    setSavingOperationId(op.id)
+    setPaymentError(null)
 
     try {
-      await registrarPagoApi(op.id, modalidadCobro)
-    } catch (err) {
-      console.error("Error al registrar pago:", err)
-    }
+      const result = await registrarPagoApi(op.id, modalidadCobro)
 
-    await reload()
+      setState((previous) => ({
+        ...previous,
+        caja: result.caja,
+        activo: result.activo,
+        clientes: previous.clientes.map((currentClient) => ({
+          ...currentClient,
+          operaciones: currentClient.operaciones.map((operation) =>
+            operation.id === result.operacionId
+              ? { ...operation, pagosRealizados: result.pagosRealizados }
+              : operation,
+          ),
+        })),
+      }))
+    } catch (error) {
+      setPaymentError(
+        error instanceof Error ? error.message : "No se pudo registrar el pago",
+      )
+    } finally {
+      setSavingOperationId(null)
+    }
   }
 
   return (
@@ -117,6 +105,14 @@ export default function DetalleCliente({
       </div>
 
       <div className="px-4 lg:px-8 py-6 space-y-6">
+        {paymentError && (
+          <p
+            className="rounded-lg border border-danger-100 bg-danger-50 px-4 py-3 text-sm text-danger-600"
+            role="alert"
+          >
+            {paymentError}
+          </p>
+        )}
         <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
           <div className="px-5 py-4 flex items-center gap-4 border-b border-slate-100">
             <div className="w-12 h-12 rounded-full bg-brand-100 flex items-center justify-center">
@@ -247,10 +243,13 @@ export default function DetalleCliente({
                       </div>
                       <button
                         onClick={() => registrarPago(op)}
-                        className="w-full rounded-lg bg-success-500 hover:bg-success-600 text-white py-3 text-sm font-semibold flex items-center justify-center gap-2 transition-colors"
+                        disabled={savingOperationId !== null}
+                        className="w-full rounded-lg bg-success-500 hover:bg-success-600 disabled:opacity-60 disabled:cursor-not-allowed text-white py-3 text-sm font-semibold flex items-center justify-center gap-2 transition-colors"
                       >
                         <Icon name="receipt" cls="w-4 h-4" />
-                        Registrar pago — {fmt(op.cuotaValor)} · {cobro}
+                        {savingOperationId === op.id
+                          ? "Registrando…"
+                          : `Registrar pago — ${fmt(op.cuotaValor)} · ${cobro}`}
                       </button>
                     </div>
                   )}

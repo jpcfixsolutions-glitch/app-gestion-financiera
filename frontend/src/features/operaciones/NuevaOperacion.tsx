@@ -2,10 +2,8 @@ import { useState } from "react"
 
 import type {
   AppState,
-  Cliente,
   Frecuencia,
   Modalidad,
-  Operacion,
   Plan,
   View,
 } from "@/domain/finance/types"
@@ -57,8 +55,6 @@ export interface NuevaOperacionProps {
   setState: (fn: (prev: AppState) => AppState) => void
 
   setView: (v: View) => void
-
-  reload: () => Promise<void>
 }
 
 export default function NuevaOperacion({
@@ -67,10 +63,12 @@ export default function NuevaOperacion({
   setState,
 
   setView,
-
-  reload,
 }: NuevaOperacionProps) {
   const [step, setStep] = useState(0)
+
+  const [isSubmitting, setIsSubmitting] = useState(false)
+
+  const [submitError, setSubmitError] = useState<string | null>(null)
 
   const [data, setData] = useState<WizardData>({
     nombre: "",
@@ -132,70 +130,13 @@ export default function NuevaOperacion({
   const montoExcede = monto > disponible - state.limiteReserva / 2 && monto > 0
 
   async function confirm() {
-    if (!planFinal) return
+    if (!planFinal || isSubmitting) return
 
-    // Optimistic local update
-
-    const newOp: Operacion = {
-      id: "op" + Date.now(),
-
-      clienteId: "c" + Date.now(),
-
-      monto,
-
-      modalidad: data.modalidad,
-
-      motivo: data.motivo,
-
-      plan: planFinal,
-
-      totalDevolver,
-
-      cuotaValor,
-
-      fechaInicio: new Date().toISOString().split("T")[0],
-
-      pagosRealizados: 0,
-
-      estado: "al-dia",
-
-      proximoVencimiento: new Date(Date.now() + 30 * 86400000)
-
-        .toISOString()
-
-        .split("T")[0],
-    }
-
-    const newClient: Cliente = {
-      id: newOp.clienteId,
-
-      nombre: data.nombre,
-
-      dni: data.dni,
-
-      telefono: data.telefono,
-
-      direccion: data.direccion,
-
-      operaciones: [newOp],
-    }
-
-    const key = data.modalidad === "Efectivo" ? "efectivo" : "transferencia"
-
-    setState((prev) => ({
-      ...prev,
-
-      caja: { ...prev.caja, [key]: prev.caja[key] - monto },
-
-      activo: { ...prev.activo, [key]: prev.activo[key] + monto },
-
-      clientes: [...prev.clientes, newClient],
-    }))
-
-    // Persist to API
+    setIsSubmitting(true)
+    setSubmitError(null)
 
     try {
-      await crearOperacion({
+      const result = await crearOperacion({
         cliente: {
           nombre: data.nombre,
 
@@ -226,19 +167,52 @@ export default function NuevaOperacion({
                 interes: Number(data.interes) || 0,
               }
             : undefined,
-
-          totalDevolver,
-
-          cuotaValor,
         },
       })
-    } catch (err) {
-      console.error("Error al crear operación:", err)
+
+      setState((previous) => {
+        const existingClient = previous.clientes.some(
+          (client) => client.id === result.cliente.id,
+        )
+        const clientes = existingClient
+          ? previous.clientes.map((client) =>
+              client.id === result.cliente.id
+                ? {
+                    ...client,
+                    ...result.cliente,
+                    operaciones: [...client.operaciones, result.operacion],
+                  }
+                : client,
+            )
+          : [
+              ...previous.clientes,
+              { ...result.cliente, operaciones: [result.operacion] },
+            ]
+        const planes =
+          result.planCreado &&
+          !previous.planes.some((plan) => plan.id === result.operacion.plan.id)
+            ? [...previous.planes, result.operacion.plan]
+            : previous.planes
+
+        return {
+          ...previous,
+          caja: result.caja,
+          activo: result.activo,
+          planes,
+          clientes,
+        }
+      })
+
+      setView("dashboard")
+    } catch (error) {
+      setSubmitError(
+        error instanceof Error
+          ? error.message
+          : "No se pudo crear la operación",
+      )
+    } finally {
+      setIsSubmitting(false)
     }
-
-    await reload()
-
-    setView("dashboard")
   }
 
   const steps = [
@@ -660,6 +634,11 @@ export default function NuevaOperacion({
       </div>
 
       <div className="px-4 lg:px-8 py-4 border-t border-slate-100 bg-white">
+        {submitError && (
+          <p className="mb-3 text-sm text-danger-600" role="alert">
+            {submitError}
+          </p>
+        )}
         {step < 3 ? (
           <button
             onClick={() => setStep(step + 1)}
@@ -670,9 +649,11 @@ export default function NuevaOperacion({
         ) : (
           <button
             onClick={confirm}
-            className="w-full bg-success-500 hover:bg-success-600 text-white rounded-xl py-4 font-semibold flex items-center justify-center gap-2 transition-colors"
+            disabled={isSubmitting}
+            className="w-full bg-success-500 hover:bg-success-600 disabled:opacity-60 disabled:cursor-not-allowed text-white rounded-xl py-4 font-semibold flex items-center justify-center gap-2 transition-colors"
           >
-            <Icon name="check" cls="w-5 h-5" /> Confirmar Operación
+            <Icon name="check" cls="w-5 h-5" />
+            {isSubmitting ? "Guardando…" : "Confirmar Operación"}
           </button>
         )}
       </div>

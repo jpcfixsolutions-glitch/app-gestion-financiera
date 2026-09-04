@@ -1,6 +1,5 @@
-// ─── API Configuration & Centralized Helper ─────────────────────────────────
-
 const rawApiUrl = (import.meta.env.VITE_API_URL || "").trim()
+const baseApiUrl = normalizeApiBaseUrl(rawApiUrl)
 
 /**
  * Retorna la URL completa para un endpoint de la API.
@@ -8,16 +7,16 @@ const rawApiUrl = (import.meta.env.VITE_API_URL || "").trim()
  * Si VITE_API_URL está definida (ej. https://api.midominio.com), concatena la URL base con el path.
  */
 export function getApiUrl(path: string): string {
-  // Asegurar que el path comience con /
-  const cleanPath = path.startsWith("/") ? path : `/${path}`
+  const cleanPath = path
+    .trim()
+    .replace(/^\/+/, "")
+    .replace(/^api\/?/, "")
 
-  // Si el path no incluye /api, anteponerlo
-  const apiPath = cleanPath.startsWith("/api") ? cleanPath : `/api${cleanPath}`
+  return cleanPath ? `${baseApiUrl}/${cleanPath}` : baseApiUrl
+}
 
-  if (!rawApiUrl) {
-    return apiPath
-  }
-
-  const baseUrl = rawApiUrl.replace(/\/+$/, "")
-  return `${baseUrl}${apiPath}`
+export function normalizeApiBaseUrl(value: string): string {
+  const normalized = value.trim().replace(/\/+$/, "")
+  if (!normalized) return "/api"
+  return normalized.endsWith("/api") ? normalized : `${normalized}/api`
 }

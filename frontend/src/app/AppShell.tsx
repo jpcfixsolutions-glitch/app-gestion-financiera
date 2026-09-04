@@ -111,23 +111,15 @@ export default function AppShell({
           />
         )}
         {view === "operacion" && (
-          <NuevaOperacion
-            state={state}
-            setState={setState}
-            setView={setView}
-            reload={reload}
-          />
+          <NuevaOperacion state={state} setState={setState} setView={setView} />
         )}
-        {view === "config" && (
-          <Config state={state} setState={setState} reload={reload} />
-        )}
+        {view === "config" && <Config state={state} setState={setState} />}
         {view === "cliente" && selectedCliente && (
           <DetalleCliente
             cliente={selectedCliente}
             state={state}
             setState={setState}
             setView={setView}
-            reload={reload}
           />
         )}
       </main>

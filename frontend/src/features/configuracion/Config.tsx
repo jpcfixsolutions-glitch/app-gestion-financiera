@@ -12,11 +12,9 @@ export interface ConfigProps {
   state: AppState
 
   setState: (fn: (prev: AppState) => AppState) => void
-
-  reload: () => Promise<void>
 }
 
-export default function Config({ state, setState, reload }: ConfigProps) {
+export default function Config({ state, setState }: ConfigProps) {
   const [limiteInput, setLimiteInput] = useState(String(state.limiteReserva))
 
   const [nuevoPlan, setNuevoPlan] = useState({
@@ -29,18 +27,38 @@ export default function Config({ state, setState, reload }: ConfigProps) {
     interes: "15",
   })
 
+  const [savingAction, setSavingAction] = useState<string | null>(null)
+
+  const [actionError, setActionError] = useState<string | null>(null)
+
   async function saveLimite() {
     const parsed = Number(limiteInput.replace(/\D/g, ""))
+    setSavingAction("limit")
+    setActionError(null)
 
-    setState((prev) => ({ ...prev, limiteReserva: parsed }))
-
-    await actualizarLimite(parsed)
-
-    await reload()
+    try {
+      const result = await actualizarLimite(parsed)
+      setState((previous) => ({
+        ...previous,
+        limiteReserva: result.limiteReserva,
+      }))
+    } catch (error) {
+      setActionError(
+        error instanceof Error ? error.message : "No se pudo guardar el límite",
+      )
+    } finally {
+      setSavingAction(null)
+    }
   }
 
   async function addPlan() {
-    if (!nuevoPlan.nombre || !nuevoPlan.cuotas || !nuevoPlan.interes) return
+    if (
+      !nuevoPlan.nombre ||
+      !nuevoPlan.cuotas ||
+      !nuevoPlan.interes ||
+      savingAction
+    )
+      return
 
     const plan: Plan = {
       id: "p" + Date.now(),
@@ -54,41 +72,54 @@ export default function Config({ state, setState, reload }: ConfigProps) {
       interes: Number(nuevoPlan.interes),
     }
 
-    setState((prev) => ({ ...prev, planes: [...prev.planes, plan] }))
+    setSavingAction("plan")
+    setActionError(null)
 
-    await agregarPlan({
-      nombre: plan.nombre,
+    try {
+      const result = await agregarPlan({
+        nombre: plan.nombre,
+        cuotas: plan.cuotas,
+        frecuencia: plan.frecuencia,
+        interes: plan.interes,
+      })
 
-      cuotas: plan.cuotas,
-
-      frecuencia: plan.frecuencia,
-
-      interes: plan.interes,
-    })
-
-    setNuevoPlan({
-      nombre: "",
-
-      cuotas: "3",
-
-      frecuencia: "Mensual",
-
-      interes: "15",
-    })
-
-    await reload()
+      setState((previous) => ({
+        ...previous,
+        planes: [...previous.planes, result.plan],
+      }))
+      setNuevoPlan({
+        nombre: "",
+        cuotas: "3",
+        frecuencia: "Mensual",
+        interes: "15",
+      })
+    } catch (error) {
+      setActionError(
+        error instanceof Error ? error.message : "No se pudo agregar el plan",
+      )
+    } finally {
+      setSavingAction(null)
+    }
   }
 
   async function deletePlan(id: string) {
-    setState((prev) => ({
-      ...prev,
+    if (savingAction) return
+    setSavingAction(id)
+    setActionError(null)
 
-      planes: prev.planes.filter((p) => p.id !== id),
-    }))
-
-    await eliminarPlan(id)
-
-    await reload()
+    try {
+      const result = await eliminarPlan(id)
+      setState((previous) => ({
+        ...previous,
+        planes: previous.planes.filter((plan) => plan.id !== result.id),
+      }))
+    } catch (error) {
+      setActionError(
+        error instanceof Error ? error.message : "No se pudo eliminar el plan",
+      )
+    } finally {
+      setSavingAction(null)
+    }
   }
 
   return (
@@ -99,6 +130,15 @@ export default function Config({ state, setState, reload }: ConfigProps) {
         </p>
         <h2 className="text-2xl font-semibold text-slate-900">Configuración</h2>
       </div>
+
+      {actionError && (
+        <p
+          className="rounded-lg border border-danger-100 bg-danger-50 px-4 py-3 text-sm text-danger-600"
+          role="alert"
+        >
+          {actionError}
+        </p>
+      )}
 
       <section className="bg-white rounded-xl border border-slate-200 overflow-hidden">
         <div className="px-5 py-4 border-b border-slate-100">
@@ -123,9 +163,10 @@ export default function Config({ state, setState, reload }: ConfigProps) {
           </div>
           <button
             onClick={saveLimite}
-            className="rounded-lg bg-brand-600 hover:bg-brand-700 text-white px-5 py-3 text-sm font-semibold transition-colors"
+            disabled={savingAction !== null}
+            className="rounded-lg bg-brand-600 hover:bg-brand-700 disabled:opacity-60 disabled:cursor-not-allowed text-white px-5 py-3 text-sm font-semibold transition-colors"
           >
-            Guardar
+            {savingAction === "limit" ? "Guardando…" : "Guardar"}
           </button>
         </div>
         <div className="px-5 pb-4">
@@ -164,8 +205,9 @@ export default function Config({ state, setState, reload }: ConfigProps) {
                 </div>
                 <button
                   onClick={() => deletePlan(p.id)}
+                  disabled={savingAction !== null}
                   aria-label={`Eliminar plan ${p.nombre}`}
-                  className="text-slate-300 hover:text-danger-600 transition-colors p-1"
+                  className="text-slate-300 hover:text-danger-600 disabled:opacity-40 transition-colors p-1"
                 >
                   <Icon name="trash" cls="w-4 h-4" />
                 </button>
@@ -239,9 +281,11 @@ export default function Config({ state, setState, reload }: ConfigProps) {
           </div>
           <button
             onClick={addPlan}
-            className="w-full rounded-lg bg-brand-600 hover:bg-brand-700 text-white py-3 text-sm font-semibold flex items-center justify-center gap-2 transition-colors"
+            disabled={savingAction !== null}
+            className="w-full rounded-lg bg-brand-600 hover:bg-brand-700 disabled:opacity-60 disabled:cursor-not-allowed text-white py-3 text-sm font-semibold flex items-center justify-center gap-2 transition-colors"
           >
-            <Icon name="plus" cls="w-4 h-4" /> Agregar plan
+            <Icon name="plus" cls="w-4 h-4" />
+            {savingAction === "plan" ? "Agregando…" : "Agregar plan"}
           </button>
         </div>
       </section>

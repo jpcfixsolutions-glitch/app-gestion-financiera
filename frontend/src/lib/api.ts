@@ -1,43 +1,18 @@
-import type { AppState, Frecuencia, Modalidad } from "@/domain/finance/types"
-import { getAuthToken } from "@/lib/authService"
-import { getApiUrl } from "@/lib/apiConfig"
-
-async function request<T>(path: string, options?: RequestInit): Promise<T> {
-  const token = getAuthToken()
-
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
-
-    ...(options?.headers as Record<string, string> || {}),
-  }
-
-  const res = await fetch(getApiUrl(path), {
-    ...options,
-    credentials: "include",
-    headers,
-  })
-
-  if (!res.ok) {
-    if (res.status === 401 && typeof window !== "undefined") {
-      sessionStorage.removeItem("gf_auth_token")
-
-      sessionStorage.removeItem("gf_auth_session")
-
-      window.location.reload()
-    }
-
-    throw new Error(`API error ${res.status}: ${await res.text()}`)
-  }
-
-  return res.json()
-}
+import type {
+  AppState,
+  CapitalSplit,
+  Cliente,
+  Frecuencia,
+  Modalidad,
+  Operacion,
+  Plan,
+} from "@/domain/finance/types"
+import { apiRequest } from "@/lib/apiClient"
 
 // ─── Queries ─────────────────────────────────────────────────────────────────
 
 export function fetchAppState(): Promise<AppState> {
-  return request<AppState>("/state")
+  return apiRequest<AppState>("/state")
 }
 
 // ─── Mutations ───────────────────────────────────────────────────────────────
@@ -71,39 +46,57 @@ export interface NuevaOperacionPayload {
 
       interes: number
     }
-
-    totalDevolver: number
-
-    cuotaValor: number
   }
 }
 
 export function crearOperacion(
   payload: NuevaOperacionPayload,
-): Promise<{ ok: boolean }> {
-  return request("/operaciones", {
+): Promise<CrearOperacionResponse> {
+  return apiRequest("/operaciones", {
     method: "POST",
 
     body: JSON.stringify(payload),
   })
 }
 
+export interface CrearOperacionResponse {
+  ok: boolean
+  cliente: Omit<Cliente, "operaciones">
+  operacion: Operacion
+  planCreado: boolean
+  caja: CapitalSplit
+  activo: CapitalSplit
+}
+
 export function registrarPago(
   opId: string,
 
   modalidad: Modalidad,
-): Promise<{ ok: boolean }> {
-  return request(`/operaciones/${opId}/pago`, {
+): Promise<RegistrarPagoResponse> {
+  return apiRequest(`/operaciones/${opId}/pago`, {
     method: "POST",
 
     body: JSON.stringify({ modalidad }),
   })
 }
 
+export interface RegistrarPagoResponse {
+  ok: boolean
+  operacionId: string
+  pagosRealizados: number
+  caja: CapitalSplit
+  activo: CapitalSplit
+}
+
+export interface ActualizarLimiteResponse {
+  ok: boolean
+  limiteReserva: number
+}
+
 export function actualizarLimite(
   limiteReserva: number,
-): Promise<{ ok: boolean }> {
-  return request("/configuracion/limite", {
+): Promise<ActualizarLimiteResponse> {
+  return apiRequest("/configuracion/limite", {
     method: "PUT",
 
     body: JSON.stringify({ limiteReserva }),
@@ -112,7 +105,7 @@ export function actualizarLimite(
 
 export interface AgregarPlanResponse {
   ok: boolean
-  id: string
+  plan: Plan
 }
 
 export function agregarPlan(plan: {
@@ -121,12 +114,17 @@ export function agregarPlan(plan: {
   frecuencia: Frecuencia
   interes: number
 }): Promise<AgregarPlanResponse> {
-  return request("/planes", {
+  return apiRequest("/planes", {
     method: "POST",
     body: JSON.stringify(plan),
   })
 }
 
-export function eliminarPlan(id: string): Promise<{ ok: boolean }> {
-  return request(`/planes/${id}`, { method: "DELETE" })
+export interface EliminarPlanResponse {
+  ok: boolean
+  id: string
+}
+
+export function eliminarPlan(id: string): Promise<EliminarPlanResponse> {
+  return apiRequest(`/planes/${id}`, { method: "DELETE" })
 }

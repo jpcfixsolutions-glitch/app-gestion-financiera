@@ -2,14 +2,22 @@
   "name": "app-gestion-financiera-backend",
   "private": true,
   "version": "1.0.0",
+  "packageManager": "pnpm@10.34.3",
+  "engines": {
+    "node": "22.x"
+  },
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/dev.ts",
     "start": "tsx src/dev.ts",
+    "build": "tsc --noEmit",
+    "test": "tsx --test src/services/*.test.ts",
     "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
-    "db:seed": "tsx src/db/seed.ts",
-    "db:user": "tsx src/db/create-user.ts",
+    "db:seed": "tsx src/scripts/seed.ts",
+    "db:setup": "pnpm db:migrate && pnpm db:seed",
+    "db:user": "tsx src/scripts/create-user.ts",
     "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
