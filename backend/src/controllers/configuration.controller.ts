@@ -1,15 +1,14 @@
-import type { Handler } from "hono"
+import type { Request, Response } from "express"
 
 import { updateReserveLimit } from "../services/configuration.service"
-import type { AppBindings } from "../types"
-import { readJsonBody } from "./request"
 
-export const updateReserveLimitController: Handler<AppBindings> = async (
-  context,
-) => {
+export async function updateReserveLimitController(
+  request: Request,
+  response: Response,
+): Promise<void> {
   const result = await updateReserveLimit(
-    context.get("authUser").empresaId,
-    await readJsonBody(context),
+    request.authUser!.empresaId,
+    request.body,
   )
-  return context.json({ ok: true, ...result })
+  response.json({ ok: true, ...result })
 }

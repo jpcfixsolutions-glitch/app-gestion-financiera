@@ -58,10 +58,10 @@ export interface AuthTokenPayload {
   exp: number
 }
 
-export interface AppVariables {
-  authUser: AuthTokenPayload
-}
-
-export type AppBindings = {
-  Variables: AppVariables
+declare global {
+  namespace Express {
+    interface Request {
+      authUser?: AuthTokenPayload
+    }
+  }
 }

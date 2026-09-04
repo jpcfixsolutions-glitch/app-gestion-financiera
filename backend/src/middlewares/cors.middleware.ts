@@ -1,22 +1,33 @@
-import { cors } from "hono/cors"
+import type { RequestHandler } from "express"
 
 import { getAllowedOrigins } from "../config/env"
 
 const allowedOrigins = getAllowedOrigins()
 
-export const corsMiddleware = cors({
-  origin: (origin) => {
-    if (!origin) return undefined
+export const corsMiddleware: RequestHandler = (request, response, next) => {
+  const origin = request.get("Origin")
+
+  if (origin) {
+    response.vary("Origin")
     if (isAllowedOrigin(origin)) {
-      return origin
+      response.setHeader("Access-Control-Allow-Origin", origin)
     }
-    return undefined
-  },
-  allowHeaders: ["Content-Type", "Authorization"],
-  allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-  exposeHeaders: ["X-Request-Id"],
-  maxAge: 86_400,
-})
+  }
+
+  response.set({
+    "Access-Control-Allow-Headers": "Content-Type, Authorization",
+    "Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS",
+    "Access-Control-Expose-Headers": "X-Request-Id",
+    "Access-Control-Max-Age": "86400",
+  })
+
+  if (request.method === "OPTIONS") {
+    response.status(204).end()
+    return
+  }
+
+  next()
+}
 
 function isAllowedOrigin(origin: string): boolean {
   const normalizedOrigin = origin.replace(/\/$/, "")

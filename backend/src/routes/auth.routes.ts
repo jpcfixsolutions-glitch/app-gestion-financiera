@@ -1,4 +1,4 @@
-import { Hono } from "hono"
+import { Router } from "express"
 
 import {
   loginController,
@@ -6,9 +6,8 @@ import {
   meController,
 } from "../controllers/auth.controller"
 import { requireAuth } from "../middlewares/auth.middleware"
-import type { AppBindings } from "../types"
 
-const authRoutes = new Hono<AppBindings>()
+const authRoutes = Router()
 
 authRoutes.post("/login", loginController)
 authRoutes.get("/me", requireAuth, meController)

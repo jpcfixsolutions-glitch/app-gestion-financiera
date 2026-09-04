@@ -3,7 +3,7 @@
 Monorepo con dos aplicaciones desplegables de forma independiente:
 
 - `frontend`: React 19, Vite 8 y Tailwind CSS 4.
-- `backend`: API Hono sobre funciones de Vercel, Drizzle ORM y Turso/libSQL.
+- `backend`: API Express 5, Drizzle ORM y Turso/libSQL.
 
 Cada aplicación mantiene dentro de su Root Directory todos los archivos que usa
 durante el build de Vercel.
@@ -12,7 +12,6 @@ durante el build de Vercel.
 
 ```text
 backend/
-├── api/index.ts                 # Única función serverless de Vercel
 ├── drizzle/                     # Migraciones versionadas
 └── src/
     ├── config/                  # Lectura y validación de variables de entorno
@@ -23,7 +22,7 @@ backend/
     ├── routes/                  # Definición modular de endpoints
     ├── scripts/                 # Seed y administración de usuarios
     ├── services/                # Reglas de negocio y validaciones
-    ├── app.ts                   # Composición de la aplicación Hono
+    ├── app.ts                   # Aplicación Express exportada para Vercel
     ├── dev.ts                   # Servidor local
     └── types.ts                 # Contratos del dominio
 ```
@@ -127,8 +126,8 @@ Crear dos proyectos desde el mismo repositorio.
    `pnpm db:seed` solamente si se necesitan los datos iniciales.
 4. Desplegar y comprobar `https://<backend>/api/health`.
 
-Todo `/api/*` se enruta a una única función Hono, por lo que no se crea una
-función por controlador o endpoint.
+Vercel detecta `src/app.ts` y despliega toda la aplicación Express como una sola
+función, sin un adaptador HTTP ni rewrites manuales.
 
 ### Proyecto frontend
 

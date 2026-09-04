@@ -1,12 +1,11 @@
-import { Hono } from "hono"
+import { Router } from "express"
 
 import { getStateController } from "../controllers/state.controller"
 import { requireAuth } from "../middlewares/auth.middleware"
-import type { AppBindings } from "../types"
 
-const stateRoutes = new Hono<AppBindings>()
+const stateRoutes = Router()
 
-stateRoutes.use("*", requireAuth)
+stateRoutes.use(requireAuth)
 stateRoutes.get("/", getStateController)
 
 export default stateRoutes

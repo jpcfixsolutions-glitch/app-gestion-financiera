@@ -1,26 +1,27 @@
-import type { Handler } from "hono"
+import type { Request, Response } from "express"
 
 import { createOperation, registerPayment } from "../services/operation.service"
-import type { AppBindings } from "../types"
-import { readJsonBody } from "./request"
+import { getRouteParam } from "./request"
 
-export const createOperationController: Handler<AppBindings> = async (
-  context,
-) => {
+export async function createOperationController(
+  request: Request,
+  response: Response,
+): Promise<void> {
   const result = await createOperation(
-    context.get("authUser").empresaId,
-    await readJsonBody(context),
+    request.authUser!.empresaId,
+    request.body,
   )
-  return context.json({ ok: true, ...result }, 201)
+  response.status(201).json({ ok: true, ...result })
 }
 
-export const registerPaymentController: Handler<AppBindings> = async (
-  context,
-) => {
+export async function registerPaymentController(
+  request: Request,
+  response: Response,
+): Promise<void> {
   const result = await registerPayment(
-    context.get("authUser").empresaId,
-    context.req.param("id") ?? "",
-    await readJsonBody(context),
+    request.authUser!.empresaId,
+    getRouteParam(request, "id"),
+    request.body,
   )
-  return context.json({ ok: true, ...result })
+  response.json({ ok: true, ...result })
 }

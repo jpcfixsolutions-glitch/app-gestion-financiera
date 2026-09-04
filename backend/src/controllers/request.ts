@@ -1,11 +1,6 @@
-import type { Context } from "hono"
+import type { Request } from "express"
 
-import { AppError } from "../errors/app-error"
-
-export async function readJsonBody(context: Context): Promise<unknown> {
-  try {
-    return await context.req.json()
-  } catch {
-    throw new AppError("El cuerpo JSON no es válido", 400, "INVALID_JSON")
-  }
+export function getRouteParam(request: Request, name: string): string {
+  const value = request.params[name]
+  return Array.isArray(value) ? (value[0] ?? "") : (value ?? "")
 }

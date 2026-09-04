@@ -1,21 +1,23 @@
-import type { Handler } from "hono"
+import type { Request, Response } from "express"
 
 import { createPlan, deletePlan } from "../services/plan.service"
-import type { AppBindings } from "../types"
-import { readJsonBody } from "./request"
+import { getRouteParam } from "./request"
 
-export const createPlanController: Handler<AppBindings> = async (context) => {
-  const plan = await createPlan(
-    context.get("authUser").empresaId,
-    await readJsonBody(context),
-  )
-  return context.json({ ok: true, plan }, 201)
+export async function createPlanController(
+  request: Request,
+  response: Response,
+): Promise<void> {
+  const plan = await createPlan(request.authUser!.empresaId, request.body)
+  response.status(201).json({ ok: true, plan })
 }
 
-export const deletePlanController: Handler<AppBindings> = async (context) => {
+export async function deletePlanController(
+  request: Request,
+  response: Response,
+): Promise<void> {
   const result = await deletePlan(
-    context.get("authUser").empresaId,
-    context.req.param("id") ?? "",
+    request.authUser!.empresaId,
+    getRouteParam(request, "id"),
   )
-  return context.json({ ok: true, ...result })
+  response.json({ ok: true, ...result })
 }

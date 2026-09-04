@@ -1,9 +1,11 @@
-import type { Handler } from "hono"
+import type { Request, Response } from "express"
 
 import { getAppState } from "../services/state.service"
-import type { AppBindings } from "../types"
 
-export const getStateController: Handler<AppBindings> = async (context) => {
-  const state = await getAppState(context.get("authUser").empresaId)
-  return context.json(state)
+export async function getStateController(
+  request: Request,
+  response: Response,
+): Promise<void> {
+  const state = await getAppState(request.authUser!.empresaId)
+  response.json(state)
 }

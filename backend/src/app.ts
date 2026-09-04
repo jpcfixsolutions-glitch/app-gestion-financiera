@@ -1,38 +1,45 @@
-import { Hono } from "hono"
-import { bodyLimit } from "hono/body-limit"
-import { secureHeaders } from "hono/secure-headers"
+import express, { type RequestHandler } from "express"
 
 import { corsMiddleware } from "./middlewares/cors.middleware"
 import { handleError, handleNotFound } from "./middlewares/error.middleware"
 import routes from "./routes"
-import type { AppBindings } from "./types"
 
-const app = new Hono<AppBindings>()
+const app = express()
 
-app.use("*", secureHeaders())
-app.use("/api/*", corsMiddleware)
-app.use(
-  "/api/*",
-  bodyLimit({
-    maxSize: 256 * 1024,
-    onError: (context) =>
-      context.json(
-        {
-          error: "El cuerpo de la solicitud es demasiado grande",
-          code: "BODY_TOO_LARGE",
-        },
-        413,
-      ),
-  }),
-)
-app.use("/api/*", async (context, next) => {
-  context.header("Cache-Control", "private, no-store")
-  await next()
-})
+app.disable("x-powered-by")
+app.use("/api", corsMiddleware)
+app.use("/api", securityHeaders)
+app.use("/api", express.json({ limit: "256kb" }))
+app.use("/api", noStore)
 
-app.route("/api", routes)
-app.onError(handleError)
-app.notFound(handleNotFound)
+app.get("/", (_request, response) => response.redirect(307, "/api"))
+app.get("/favicon.ico", (_request, response) => response.status(204).end())
+app.use("/api", routes)
+app.use(handleNotFound)
+app.use(handleError)
 
 export default app
-export type ApiType = typeof app
+
+function securityHeaders(
+  _request: Parameters<RequestHandler>[0],
+  response: Parameters<RequestHandler>[1],
+  next: Parameters<RequestHandler>[2],
+): void {
+  response.set({
+    "Content-Security-Policy": "default-src 'none'",
+    "Cross-Origin-Opener-Policy": "same-origin",
+    "Referrer-Policy": "no-referrer",
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+  })
+  next()
+}
+
+function noStore(
+  _request: Parameters<RequestHandler>[0],
+  response: Parameters<RequestHandler>[1],
+  next: Parameters<RequestHandler>[2],
+): void {
+  response.setHeader("Cache-Control", "private, no-store")
+  next()
+}

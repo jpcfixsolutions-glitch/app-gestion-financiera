@@ -1,8 +1,9 @@
-import type { Handler } from "hono"
+import type { Request, Response } from "express"
 
-export const healthController: Handler = (context) =>
-  context.json({
+export function healthController(_request: Request, response: Response): void {
+  response.json({
     ok: true,
     service: "app-gestion-financiera-backend",
     timestamp: new Date().toISOString(),
   })
+}
