@@ -16,15 +16,14 @@ backend/
 └── src/
     ├── config/                  # Lectura y validación de variables de entorno
     ├── controllers/             # Traducción HTTP entre frontend y servicios
-    ├── errors/                  # Errores de aplicación tipados
+    ├── errors/                  # Errores de aplicación
     ├── middlewares/             # Auth, CORS, seguridad y manejo de errores
     ├── models/                  # Esquema Drizzle y conexión Turso
     ├── routes/                  # Definición modular de endpoints
     ├── scripts/                 # Seed y administración de usuarios
     ├── services/                # Reglas de negocio y validaciones
-    ├── app.ts                   # Aplicación Express exportada para Vercel
-    ├── dev.ts                   # Servidor local
-    └── types.ts                 # Contratos del dominio
+    ├── app.js                   # Aplicación Express
+    └── dev.js                   # Servidor local
 ```
 
 La base no ejecuta DDL ni seeds durante una petición. Las migraciones se aplican
@@ -89,7 +88,7 @@ intente consultar su propio dominio.
 ## Base de datos
 
 ```bash
-pnpm db:generate   # genera migraciones desde src/models/schema.ts
+pnpm db:generate   # genera migraciones desde src/models/schema.js
 pnpm db:migrate    # aplica migraciones existentes
 pnpm db:seed       # carga datos iniciales de forma idempotente
 pnpm db:user       # crea o actualiza el usuario administrador inicial
@@ -126,8 +125,8 @@ Crear dos proyectos desde el mismo repositorio.
    `pnpm db:seed` solamente si se necesitan los datos iniciales.
 4. Desplegar y comprobar `https://<backend>/api/health`.
 
-Vercel detecta `src/app.ts` y despliega toda la aplicación Express como una sola
-función, sin un adaptador HTTP ni rewrites manuales.
+Vercel dirige las solicitudes a `api/index.js`, que exporta toda la aplicación
+Express como una única función serverless.
 
 ### Proyecto frontend
 
@@ -143,5 +142,7 @@ backend y volver a desplegarlo.
 - `GET /api/state` agrupa sus consultas Turso mediante el batch de Drizzle.
 - Crear operaciones, registrar pagos y editar configuración devuelve los datos
   actualizados; el frontend ya no hace un segundo `GET /api/state` por mutación.
+- El cierre de sesión es local porque los tokens son stateless; no realiza una
+  solicitud HTTP que el servidor no necesita.
 - Los preflight CORS se pueden reutilizar durante 24 horas.
 - La API no ejecuta migraciones, creación de tablas ni seed al atender peticiones.

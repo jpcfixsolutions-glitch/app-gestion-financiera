@@ -8,16 +8,16 @@
   },
   "type": "module",
   "scripts": {
-    "dev": "tsx watch src/dev.ts",
-    "start": "tsx src/dev.ts",
-    "build": "tsc --noEmit",
-    "test": "tsx --test src/*.test.ts src/services/*.test.ts",
+    "dev": "node --watch src/dev.js",
+    "start": "node src/dev.js",
+    "build": "node --check src/dev.js && node --check api/index.js",
+    "test": "node --test",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
-    "db:seed": "tsx src/scripts/seed.ts",
+    "db:seed": "node src/scripts/seed.js",
     "db:setup": "pnpm db:migrate && pnpm db:seed",
-    "db:user": "tsx src/scripts/create-user.ts",
+    "db:user": "node src/scripts/create-user.js",
     "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
@@ -27,10 +27,6 @@
     "express": "^5.2.1"
   },
   "devDependencies": {
-    "@types/express": "^5.0.6",
-    "@types/node": "^22.0.0",
-    "drizzle-kit": "^0.31.10",
-    "tsx": "^4.23.13",
-    "typescript": "^5.7.0"
+    "drizzle-kit": "^0.31.10"
   }
 }
