@@ -4,7 +4,7 @@ import { empresas, usuarios } from "../models/schema"
 import { hashPassword } from "../services/security.service"
 
 async function createOrUpdateUser() {
-  const username = "osmar"
+  const username = "OsmarBonaldi"
   const nombre = "Osmar Bonaldi"
   const passwordHash = await hashPassword(getInitialUserPassword())
 
@@ -29,8 +29,8 @@ async function createOrUpdateUser() {
       createdAt: new Date().toISOString(),
     })
     .onConflictDoUpdate({
-      target: usuarios.username,
-      set: { nombre, passwordHash },
+      target: usuarios.id,
+      set: { nombre, username, passwordHash },
     })
 
   console.log(`✅ Usuario '${nombre}' actualizado correctamente.`)

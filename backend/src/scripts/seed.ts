@@ -177,7 +177,7 @@ async function seed() {
         id: "usr_osmar",
         empresaId: "emp1",
         nombre: "Osmar Bonaldi",
-        username: "osmar",
+        username: "OsmarBonaldi",
         passwordHash,
         rol: "admin",
         createdAt,
