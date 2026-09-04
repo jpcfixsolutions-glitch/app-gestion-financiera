@@ -69,9 +69,11 @@ INITIAL_USER_PASSWORD=solo-para-seed-o-db-user
 PORT=3001
 ```
 
-`FRONTEND_URL` admite una lista separada por comas y un comodín por origen para
-los previews de Vercel. No uses `*` en producción salvo que quieras permitir
-cualquier sitio.
+Los dominios estables `https://mis-finanzas-ipc.vercel.app` y
+`https://mis-finanzas-app-backend.vercel.app` ya están autorizados por el
+backend. `FRONTEND_URL` permite agregar otros dominios o previews mediante una
+lista separada por comas y un comodín por origen. No uses `*` en producción
+salvo que quieras permitir cualquier sitio.
 
 ### Frontend
 
@@ -118,8 +120,9 @@ Crear dos proyectos desde el mismo repositorio.
 ### Proyecto backend
 
 1. Elegir `backend` como **Root Directory**.
-2. Cargar `TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN`, `AUTH_SECRET` y
-   `FRONTEND_URL` en Production y Preview.
+2. Cargar `TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN` y `AUTH_SECRET` en
+   Production y Preview. Usar `FRONTEND_URL` solamente para orígenes adicionales
+   o previews.
 3. Aplicar `pnpm db:migrate` contra Turso antes del primer despliegue; ejecutar
    `pnpm db:seed` solamente si se necesitan los datos iniciales.
 4. Desplegar y comprobar `https://<backend>/api/health`.

@@ -6,6 +6,10 @@ const DEFAULT_LOCAL_ORIGINS = [
   "http://localhost:5173",
   "http://127.0.0.1:5173",
 ]
+const DEFAULT_PRODUCTION_ORIGINS = [
+  "https://mis-finanzas-ipc.vercel.app",
+  "https://mis-finanzas-app-backend.vercel.app",
+]
 
 function isProduction(): boolean {
   return process.env.NODE_ENV === "production"
@@ -56,13 +60,11 @@ export function getAllowedOrigins(): Set<string> {
     .map((origin) => origin.trim().replace(/\/$/, ""))
     .filter(Boolean)
 
-  if (isProduction() && configuredOrigins.length === 0) {
-    throw new Error("FRONTEND_URL debe estar configurada en producción")
-  }
+  const defaultOrigins = isProduction()
+    ? DEFAULT_PRODUCTION_ORIGINS
+    : DEFAULT_LOCAL_ORIGINS
 
-  return new Set(
-    configuredOrigins.length > 0 ? configuredOrigins : DEFAULT_LOCAL_ORIGINS,
-  )
+  return new Set([...defaultOrigins, ...configuredOrigins])
 }
 
 export function getInitialUserPassword(): string {
