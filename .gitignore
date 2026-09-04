@@ -4,14 +4,16 @@ node_modules
 
 # Variables de entorno secretas
 .env
-.env*.local
+.env.*
 !.env.example
 
 # Compilaciones e intermedios
 dist
 build
+dist-ssr
 .vite
 .next
+coverage
 
 # Base de datos local
 *.db
