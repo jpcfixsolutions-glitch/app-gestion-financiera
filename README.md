@@ -69,7 +69,7 @@ INITIAL_USER_PASSWORD=solo-para-seed-o-db-user
 PORT=3001
 ```
 
-Los dominios estables `https://mis-finanzas-ipc.vercel.app` y
+Los dominios estables `https://mis-finanzas-jpc.vercel.app` y
 `https://mis-finanzas-app-backend.vercel.app` ya están autorizados por el
 backend. `FRONTEND_URL` permite agregar otros dominios o previews mediante una
 lista separada por comas y un comodín por origen. No uses `*` en producción

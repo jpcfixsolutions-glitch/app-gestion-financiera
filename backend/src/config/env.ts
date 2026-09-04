@@ -7,7 +7,7 @@ const DEFAULT_LOCAL_ORIGINS = [
   "http://127.0.0.1:5173",
 ]
 const DEFAULT_PRODUCTION_ORIGINS = [
-  "https://mis-finanzas-ipc.vercel.app",
+  "https://mis-finanzas-jpc.vercel.app",
   "https://mis-finanzas-app-backend.vercel.app",
 ]
 

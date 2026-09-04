@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm"
+import { sql } from "drizzle-orm"
 
 import { AppError } from "../errors/app-error"
 import { db } from "../models/database"
@@ -18,13 +18,14 @@ export async function login(value: unknown) {
   const body = requireRecord(value)
   const username = requireString(body.username, "username", {
     max: 80,
-  }).toLowerCase()
+  })
+  const normalizedUsername = username.toLowerCase()
   const password = requireString(body.password, "password", { max: 200 })
 
   const [user] = await db
     .select()
     .from(usuarios)
-    .where(eq(usuarios.username, username))
+    .where(sql`lower(${usuarios.username}) = ${normalizedUsername}`)
     .limit(1)
 
   if (!user || !(await verifyPassword(password, user.passwordHash))) {
