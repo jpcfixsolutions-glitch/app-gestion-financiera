@@ -24,7 +24,6 @@ export function parsePlanInput(value, field = "plan") {
 }
 export function parseCreateOperationInput(value) {
   const body = requireRecord(value)
-  const cliente = requireRecord(body.cliente, "cliente")
   const operacion = requireRecord(body.operacion, "operacion")
   const planCustom = operacion.planCustom
     ? parsePlanInput(operacion.planCustom, "operacion.planCustom")
@@ -33,15 +32,7 @@ export function parseCreateOperationInput(value) {
     ? ""
     : requireString(operacion.planId, "operacion.planId", { max: 100 })
   return {
-    cliente: {
-      nombre: requireClientName(cliente.nombre),
-      dni: requireDni(cliente.dni),
-      telefono: requirePhone(cliente.telefono),
-      direccion: requireString(cliente.direccion, "cliente.direccion", {
-        optional: true,
-        max: 200,
-      }),
-    },
+    cliente: parseClientInput(body.cliente),
     operacion: {
       monto: requireNumber(operacion.monto, "operacion.monto", {
         min: 0.01,
@@ -57,8 +48,20 @@ export function parseCreateOperationInput(value) {
     },
   }
 }
-function requireClientName(value) {
-  const nombre = requireString(value, "cliente.nombre", { min: 2, max: 120 })
+export function parseClientInput(value, field = "cliente") {
+  const cliente = requireRecord(value, field)
+  return {
+    nombre: requireClientName(cliente.nombre, field),
+    dni: requireDni(cliente.dni, field),
+    telefono: requirePhone(cliente.telefono, field),
+    direccion: requireString(cliente.direccion, `${field}.direccion`, {
+      optional: true,
+      max: 200,
+    }),
+  }
+}
+function requireClientName(value, field) {
+  const nombre = requireString(value, `${field}.nombre`, { min: 2, max: 120 })
   if (!/^[\p{L}\p{M}]+(?:[ '\-’][\p{L}\p{M}]+)*$/u.test(nombre)) {
     throw new AppError(
       "El nombre solo puede contener letras, espacios, apóstrofes y guiones",
@@ -68,8 +71,8 @@ function requireClientName(value) {
   }
   return nombre
 }
-function requireDni(value) {
-  const rawDni = requireString(value, "cliente.dni", { min: 7, max: 12 })
+function requireDni(value, field) {
+  const rawDni = requireString(value, `${field}.dni`, { min: 7, max: 12 })
   if (!/^[\d.\s-]+$/.test(rawDni)) {
     throw new AppError(
       "El DNI solo puede contener números y separadores",
@@ -87,8 +90,8 @@ function requireDni(value) {
   }
   return dni
 }
-function requirePhone(value) {
-  const telefono = requireString(value, "cliente.telefono", {
+function requirePhone(value, field) {
+  const telefono = requireString(value, `${field}.telefono`, {
     min: 8,
     max: 40,
   })

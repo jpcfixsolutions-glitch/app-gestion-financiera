@@ -4,6 +4,7 @@ import {
   real,
   sqliteTable,
   text,
+  uniqueIndex,
 } from "drizzle-orm/sqlite-core"
 export const empresas = sqliteTable("empresas", {
   id: text("id").primaryKey(),
@@ -88,6 +89,7 @@ export const clientes = sqliteTable(
   (table) => [
     index("clientes_empresa_idx").on(table.empresaId),
     index("clientes_empresa_dni_idx").on(table.empresaId, table.dni),
+    uniqueIndex("clientes_empresa_dni_unique").on(table.empresaId, table.dni),
   ],
 )
 export const operaciones = sqliteTable(

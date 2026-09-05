@@ -60,6 +60,19 @@ export async function createOperation(empresaId, value, actor) {
       "CONFIGURATION_NOT_FOUND",
     )
   }
+  const existingClient = existingClientRows[0]
+  if (
+    existingClient &&
+    ["nombre", "telefono", "direccion"].some(
+      (field) => existingClient[field] !== input.cliente[field],
+    )
+  ) {
+    throw new AppError(
+      "El DNI ya pertenece a un cliente. Editá sus datos desde la cartera antes de registrar otra operación",
+      409,
+      "DNI_ALREADY_REGISTERED",
+    )
+  }
   const planCreado = Boolean(input.operacion.planCustom)
   let plan
   if (input.operacion.planCustom) {
@@ -91,13 +104,7 @@ export async function createOperation(empresaId, value, actor) {
     )
   }
   const now = new Date()
-  const existingClient = existingClientRows[0]
   const clienteId = existingClient?.id ?? `c_${crypto.randomUUID()}`
-  const clientChanged =
-    existingClient &&
-    ["nombre", "dni", "telefono", "direccion"].some(
-      (field) => existingClient[field] !== input.cliente[field],
-    )
   const operacionId = `op_${crypto.randomUUID()}`
   const financing = calculateFinancing(input.operacion.monto, plan)
   const fechaInicio = toIsoDate(now)
@@ -156,14 +163,7 @@ export async function createOperation(empresaId, value, actor) {
           interes: plan.interes,
         })
       }
-      if (existingClient) {
-        await tx
-          .update(clientes)
-          .set(input.cliente)
-          .where(
-            and(eq(clientes.id, clienteId), eq(clientes.empresaId, empresaId)),
-          )
-      } else {
+      if (!existingClient) {
         await tx.insert(clientes).values({
           id: clienteId,
           empresaId,
@@ -202,14 +202,6 @@ export async function createOperation(empresaId, value, actor) {
             detalle: `${input.cliente.nombre} · DNI ${input.cliente.dni}`,
           }),
         )
-      } else if (clientChanged) {
-        activities.push(
-          await logActivity(tx, empresaId, actor, {
-            tipo: "cliente_actualizado",
-            titulo: "Datos de cliente actualizados",
-            detalle: `${input.cliente.nombre} · DNI ${input.cliente.dni}`,
-          }),
-        )
       }
       activities.push(
         await logActivity(tx, empresaId, actor, {
@@ -223,7 +215,17 @@ export async function createOperation(empresaId, value, actor) {
     },
   )
   return {
-    cliente: { id: clienteId, ...input.cliente },
+    cliente: {
+      id: clienteId,
+      ...(existingClient
+        ? {
+            nombre: existingClient.nombre,
+            dni: existingClient.dni,
+            telefono: existingClient.telefono,
+            direccion: existingClient.direccion,
+          }
+        : input.cliente),
+    },
     operacion: {
       id: operacionId,
       clienteId,

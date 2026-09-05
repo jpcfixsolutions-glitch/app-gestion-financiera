@@ -86,6 +86,7 @@ export default function AppShell({
         {view === "cartera" && (
           <Cartera
             clientes={state.clientes}
+            setState={setState}
             setView={setView}
             setSelectedCliente={setSelectedCliente}
           />

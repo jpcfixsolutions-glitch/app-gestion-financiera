@@ -43,6 +43,12 @@ export function editarPlan(id, plan) {
     body: JSON.stringify(plan),
   })
 }
+export function editarCliente(id, cliente) {
+  return apiRequest(`/clientes/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(cliente),
+  })
+}
 export function eliminarPlan(id) {
   return apiRequest(`/planes/${id}`, { method: "DELETE" })
 }

@@ -34,13 +34,13 @@ export function totalPorModalidad(operaciones, modalidad) {
     0,
   )
 }
-export function proximosVencimientos(clientes, limit) {
+export function vencimientosPendientes(clientes) {
   return clientes
     .flatMap((c) =>
       c.operaciones.map((op) => ({ ...op, clienteNombre: c.nombre })),
     )
+    .filter((op) => op.pagosRealizados < op.plan.cuotas)
     .sort((a, b) => a.proximoVencimiento.localeCompare(b.proximoVencimiento))
-    .slice(0, limit)
 }
 // ─── Initials ────────────────────────────────────────────────────────────────
 export function initialsFrom(nombre) {

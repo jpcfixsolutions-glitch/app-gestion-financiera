@@ -6,13 +6,15 @@ import { estadoConfig } from "@/domain/finance/status"
 import { useState } from "react"
 import {
   isCajaBlocked,
-  proximosVencimientos,
   totalCapital as total,
+  vencimientosPendientes,
 } from "@/domain/finance/calculations"
 import CapitalCard from "@/components/ui/CapitalCard"
 import Icon from "@/components/ui/Icon"
 import CajaEditor from "@/features/dashboard/CajaEditor"
 import ActivityHistory from "@/features/dashboard/ActivityHistory"
+
+const DUE_PAGE_SIZE = 8
 export default function Dashboard({
   state,
   setState,
@@ -20,12 +22,19 @@ export default function Dashboard({
   setSelectedCliente,
 }) {
   const [editingCaja, setEditingCaja] = useState(false)
+  const [duePage, setDuePage] = useState(1)
   const { caja, activo, limiteReserva, clientes } = state
   const totalCaja = total(caja)
   const totalActivo = total(activo)
   const totalGlobal = totalCaja + totalActivo
   const cajaBlocked = isCajaBlocked(caja, limiteReserva)
-  const proxVencimientos = proximosVencimientos(clientes, 5)
+  const vencimientos = vencimientosPendientes(clientes)
+  const duePages = Math.max(1, Math.ceil(vencimientos.length / DUE_PAGE_SIZE))
+  const currentDuePage = Math.min(duePage, duePages)
+  const visibleDueDates = vencimientos.slice(
+    (currentDuePage - 1) * DUE_PAGE_SIZE,
+    currentDuePage * DUE_PAGE_SIZE,
+  )
   return (
     <div className="p-4 lg:p-8 space-y-6 pb-24 lg:pb-8">
       <div>
@@ -79,27 +88,34 @@ export default function Dashboard({
 
       <ActivityHistory state={state} setState={setState} />
 
-      {/* Próximos vencimientos */}
+      {/* Vencimientos pendientes */}
       <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-        <div className="px-4 py-3 border-b border-slate-100 flex items-center gap-2">
-          <Icon name="calendar" cls="w-4 h-4 text-slate-400" />
-          <p className="text-xs font-semibold text-slate-700 uppercase tracking-wide">
-            Próximos Vencimientos
-          </p>
+        <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <Icon name="calendar" cls="w-4 h-4 text-slate-400" />
+            <p className="text-xs font-semibold text-slate-700 uppercase tracking-wide">
+              Vencimientos pendientes
+            </p>
+          </div>
+          {vencimientos.length > 0 && (
+            <span className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-mono text-slate-500">
+              {vencimientos.length}
+            </span>
+          )}
         </div>
         <div className="divide-y divide-slate-50">
-          {proxVencimientos.length === 0 ? (
+          {visibleDueDates.length === 0 ? (
             <div className="p-8 text-center text-slate-400">
               <Icon name="calendar" cls="w-8 h-8 mx-auto mb-2 opacity-30" />
               <p className="text-sm font-medium text-slate-600">
-                Sin vencimientos próximos
+                Sin vencimientos pendientes
               </p>
               <p className="text-xs text-slate-400 mt-0.5">
                 No hay cuotas pendientes registradas en el sistema.
               </p>
             </div>
           ) : (
-            proxVencimientos.map((op) => {
+            visibleDueDates.map((op) => {
               const cfg = estadoConfig[op.estado]
               return (
                 <button
@@ -140,6 +156,33 @@ export default function Dashboard({
             })
           )}
         </div>
+        {duePages > 1 && (
+          <div className="flex items-center justify-between border-t border-slate-100 px-4 py-3">
+            <p className="text-xs font-mono text-slate-400">
+              Página {currentDuePage} de {duePages}
+            </p>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setDuePage((page) => Math.max(1, page - 1))}
+                disabled={currentDuePage === 1}
+                className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                Anterior
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  setDuePage((page) => Math.min(duePages, page + 1))
+                }
+                disabled={currentDuePage === duePages}
+                className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                Siguiente
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* CTA */}

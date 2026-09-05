@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX `clientes_empresa_dni_unique` ON `clientes` (`empresa_id`,`dni`);

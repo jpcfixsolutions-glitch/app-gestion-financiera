@@ -36,6 +36,13 @@
       "when": 1788571582515,
       "tag": "0004_modern_overlord",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1788622203907,
+      "tag": "0005_outgoing_sprite",
+      "breakpoints": true
     }
   ]
 }
