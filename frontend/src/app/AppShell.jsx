@@ -78,6 +78,7 @@ export default function AppShell({
         {view === "dashboard" && (
           <Dashboard
             state={state}
+            setState={setState}
             setView={setView}
             setSelectedCliente={setSelectedCliente}
           />

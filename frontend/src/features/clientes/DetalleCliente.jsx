@@ -23,6 +23,10 @@ export default function DetalleCliente({ cliente, setState, setView }) {
         ...previous,
         caja: result.caja,
         activo: result.activo,
+        actividad: [
+          ...[...(result.actividades ?? [])].reverse(),
+          ...previous.actividad,
+        ],
         clientes: previous.clientes.map((currentClient) => ({
           ...currentClient,
           operaciones: currentClient.operaciones.map((operation) =>

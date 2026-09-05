@@ -24,6 +24,10 @@ export default function Config({ state, setState }) {
       setState((previous) => ({
         ...previous,
         limiteReserva: result.limiteReserva,
+        actividad: [
+          ...[...(result.actividades ?? [])].reverse(),
+          ...previous.actividad,
+        ],
       }))
     } catch (error) {
       setActionError(
@@ -54,6 +58,10 @@ export default function Config({ state, setState }) {
       setState((previous) => ({
         ...previous,
         planes: [...previous.planes, result.plan],
+        actividad: [
+          ...[...(result.actividades ?? [])].reverse(),
+          ...previous.actividad,
+        ],
       }))
       setNuevoPlan(EMPTY_PLAN)
     } catch (error) {
@@ -73,6 +81,10 @@ export default function Config({ state, setState }) {
       setState((previous) => ({
         ...previous,
         planes: previous.planes.filter((plan) => plan.id !== result.id),
+        actividad: [
+          ...[...(result.actividades ?? [])].reverse(),
+          ...previous.actividad,
+        ],
       }))
     } catch (error) {
       setActionError(

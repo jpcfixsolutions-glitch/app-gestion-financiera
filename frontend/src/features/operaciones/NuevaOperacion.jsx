@@ -21,18 +21,23 @@ const CLIENT_FIELDS = [
     key: "nombre",
     type: "text",
     placeholder: "Ej: Juan Carlos Martínez",
+    required: true,
   },
   {
-    label: "DNI / CUIT",
+    label: "DNI",
     key: "dni",
     type: "text",
     placeholder: "Ej: 30.123.456",
+    inputMode: "numeric",
+    required: true,
   },
   {
     label: "Teléfono",
     key: "telefono",
     type: "tel",
     placeholder: "+54 11 XXXX-XXXX",
+    inputMode: "tel",
+    required: true,
   },
   {
     label: "Dirección",
@@ -44,10 +49,36 @@ const CLIENT_FIELDS = [
 
 const FREQUENCIES = ["Diario", "Quincenal", "Mensual"]
 
+function validateClient(data) {
+  const errors = {}
+  const nombre = data.nombre.trim()
+  if (!nombre) {
+    errors.nombre = "Ingresá el nombre completo."
+  } else if (!/^[\p{L}\p{M}]+(?:[ '\-’][\p{L}\p{M}]+)*$/u.test(nombre)) {
+    errors.nombre = "Usá solo letras, espacios, apóstrofes o guiones."
+  }
+
+  const dniDigits = data.dni.replace(/\D/g, "")
+  if (!/^[\d.\s-]+$/.test(data.dni.trim()) || !/^\d{7,8}$/.test(dniDigits)) {
+    errors.dni = "Ingresá un DNI válido de 7 u 8 dígitos."
+  }
+
+  const phoneDigits = data.telefono.replace(/\D/g, "")
+  if (
+    !/^\+?[\d\s()-]+$/.test(data.telefono.trim()) ||
+    phoneDigits.length < 8 ||
+    phoneDigits.length > 15
+  ) {
+    errors.telefono = "Ingresá un teléfono válido de 8 a 15 dígitos."
+  }
+  return errors
+}
+
 export default function NuevaOperacion({ state, setState, setView }) {
   const [step, setStep] = useState(0)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState(null)
+  const [clientErrors, setClientErrors] = useState({})
   const [data, setData] = useState({
     nombre: "",
     dni: "",
@@ -82,8 +113,24 @@ export default function NuevaOperacion({ state, setState, setView }) {
       ? state.caja.efectivo
       : state.caja.transferencia
   const montoExcede = monto > disponible - state.limiteReserva / 2 && monto > 0
+  function continueToNextStep() {
+    if (step === 0) {
+      const errors = validateClient(data)
+      setClientErrors(errors)
+      if (Object.keys(errors).length > 0) return
+    }
+    setSubmitError(null)
+    setStep(step + 1)
+  }
   async function confirm() {
     if (!planFinal || isSubmitting) return
+    const errors = validateClient(data)
+    if (Object.keys(errors).length > 0) {
+      setClientErrors(errors)
+      setSubmitError("Revisá los datos del cliente antes de continuar.")
+      setStep(0)
+      return
+    }
     setIsSubmitting(true)
     setSubmitError(null)
     try {
@@ -131,6 +178,10 @@ export default function NuevaOperacion({ state, setState, setView }) {
           activo: result.activo,
           planes,
           clientes,
+          actividad: [
+            ...[...(result.actividades ?? [])].reverse(),
+            ...previous.actividad,
+          ],
         }
       })
       setView("dashboard")
@@ -183,16 +234,41 @@ export default function NuevaOperacion({ state, setState, setView }) {
               <div key={f.key}>
                 <label className="text-[11px] font-mono uppercase tracking-widest text-slate-400 block mb-1.5">
                   {f.label}
+                  {f.required && <span className="text-danger-600"> *</span>}
                 </label>
                 <input
                   type={f.type}
+                  inputMode={f.inputMode}
                   placeholder={f.placeholder}
                   value={data[f.key]}
-                  onChange={(e) =>
-                    setData({ ...data, [f.key]: e.target.value })
+                  aria-invalid={Boolean(clientErrors[f.key])}
+                  aria-describedby={
+                    clientErrors[f.key] ? `${f.key}-error` : undefined
                   }
-                  className="w-full rounded-xl border border-slate-200 px-4 py-4 text-base text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-400 focus:border-transparent"
+                  onChange={(e) => {
+                    setData({ ...data, [f.key]: e.target.value })
+                    if (clientErrors[f.key]) {
+                      setClientErrors((previous) => ({
+                        ...previous,
+                        [f.key]: undefined,
+                      }))
+                    }
+                  }}
+                  className={`w-full rounded-xl border px-4 py-4 text-base text-slate-800 focus:outline-none focus:ring-2 focus:border-transparent ${
+                    clientErrors[f.key]
+                      ? "border-danger-600 focus:ring-danger-600"
+                      : "border-slate-200 focus:ring-brand-400"
+                  }`}
                 />
+                {clientErrors[f.key] && (
+                  <p
+                    id={`${f.key}-error`}
+                    className="mt-1.5 text-xs text-danger-600"
+                    role="alert"
+                  >
+                    {clientErrors[f.key]}
+                  </p>
+                )}
               </div>
             ))}
           </div>
@@ -512,7 +588,7 @@ export default function NuevaOperacion({ state, setState, setView }) {
         )}
         {step < 3 ? (
           <button
-            onClick={() => setStep(step + 1)}
+            onClick={continueToNextStep}
             className="w-full bg-brand-600 hover:bg-brand-700 text-white rounded-xl py-4 font-semibold flex items-center justify-center gap-2 transition-colors"
           >
             Continuar <Icon name="chevron" cls="w-4 h-4" />

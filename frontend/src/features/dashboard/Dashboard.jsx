@@ -3,20 +3,27 @@ import {
   formatShortDate as fmtDate,
 } from "@/domain/finance/formatters"
 import { estadoConfig } from "@/domain/finance/status"
+import { useState } from "react"
 import {
   isCajaBlocked,
-  isCajaLow,
   proximosVencimientos,
   totalCapital as total,
 } from "@/domain/finance/calculations"
 import CapitalCard from "@/components/ui/CapitalCard"
 import Icon from "@/components/ui/Icon"
-export default function Dashboard({ state, setView, setSelectedCliente }) {
+import CajaEditor from "@/features/dashboard/CajaEditor"
+import ActivityHistory from "@/features/dashboard/ActivityHistory"
+export default function Dashboard({
+  state,
+  setState,
+  setView,
+  setSelectedCliente,
+}) {
+  const [editingCaja, setEditingCaja] = useState(false)
   const { caja, activo, limiteReserva, clientes } = state
   const totalCaja = total(caja)
   const totalActivo = total(activo)
   const totalGlobal = totalCaja + totalActivo
-  const cajaLow = isCajaLow(caja, limiteReserva)
   const cajaBlocked = isCajaBlocked(caja, limiteReserva)
   const proxVencimientos = proximosVencimientos(clientes, 5)
   return (
@@ -36,13 +43,15 @@ export default function Dashboard({ state, setView, setSelectedCliente }) {
           label="Capital en Caja"
           split={caja}
           totalGlobal={totalGlobal}
-          alertLow={cajaLow}
           alertBlocked={cajaBlocked}
+          tone="success"
+          onEdit={() => setEditingCaja(true)}
         />
         <CapitalCard
-          label="Capital Activo"
+          label="Capital Prestado"
           split={activo}
           totalGlobal={totalGlobal}
+          tone="brand"
         />
       </div>
 
@@ -50,7 +59,7 @@ export default function Dashboard({ state, setView, setSelectedCliente }) {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 lg:gap-4">
         {[
           { label: "Total en Caja", val: fmt(totalCaja) },
-          { label: "Total Activo", val: fmt(totalActivo) },
+          { label: "Total Prestado", val: fmt(totalActivo) },
           { label: "Reserva Mínima", val: fmt(limiteReserva) },
           { label: "Clientes Activos", val: String(clientes.length) },
         ].map((m) => (
@@ -67,6 +76,8 @@ export default function Dashboard({ state, setView, setSelectedCliente }) {
           </div>
         ))}
       </div>
+
+      <ActivityHistory state={state} setState={setState} />
 
       {/* Próximos vencimientos */}
       <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
@@ -146,6 +157,23 @@ export default function Dashboard({ state, setView, setSelectedCliente }) {
           ? "Capital insuficiente — Operación bloqueada"
           : "Nueva Operación"}
       </button>
+
+      {editingCaja && (
+        <CajaEditor
+          caja={caja}
+          onClose={() => setEditingCaja(false)}
+          onSaved={(result) =>
+            setState((previous) => ({
+              ...previous,
+              caja: result.caja,
+              actividad: [
+                ...[...(result.actividades ?? [])].reverse(),
+                ...previous.actividad,
+              ],
+            }))
+          }
+        />
+      )}
     </div>
   )
 }

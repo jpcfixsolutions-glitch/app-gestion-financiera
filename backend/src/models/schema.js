@@ -25,6 +25,40 @@ export const configuracion = sqliteTable(
   },
   (table) => [index("configuracion_empresa_idx").on(table.empresaId)],
 )
+export const movimientosCaja = sqliteTable(
+  "movimientos_caja",
+  {
+    id: text("id").primaryKey(),
+    empresaId: text("empresa_id")
+      .notNull()
+      .references(() => empresas.id),
+    tipo: text("tipo").notNull(),
+    modalidad: text("modalidad").notNull(),
+    monto: real("monto").notNull(),
+    razon: text("razon").notNull().default(""),
+    createdAt: text("created_at").notNull(),
+  },
+  (table) => [index("movimientos_caja_empresa_idx").on(table.empresaId)],
+)
+export const actividad = sqliteTable(
+  "actividad",
+  {
+    id: text("id").primaryKey(),
+    empresaId: text("empresa_id")
+      .notNull()
+      .references(() => empresas.id),
+    usuarioId: text("usuario_id").notNull(),
+    usuarioNombre: text("usuario_nombre").notNull(),
+    tipo: text("tipo").notNull(),
+    titulo: text("titulo").notNull(),
+    detalle: text("detalle").notNull().default(""),
+    monto: real("monto"),
+    createdAt: text("created_at").notNull(),
+  },
+  (table) => [
+    index("actividad_empresa_fecha_idx").on(table.empresaId, table.createdAt),
+  ],
+)
 export const planes = sqliteTable(
   "planes",
   {

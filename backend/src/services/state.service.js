@@ -6,8 +6,9 @@ import {
   operaciones,
   planes,
 } from "../models/schema.js"
+import { activityPageQuery, toActivityPage } from "./activity.service.js"
 export async function getAppState(empresaId) {
-  const [configurationRows, planRows, clientRows, operationRows] =
+  const [configurationRows, planRows, clientRows, operationRows, activityRows] =
     await db.batch([
       db
         .select()
@@ -34,6 +35,7 @@ export async function getAppState(empresaId) {
         .from(operaciones)
         .innerJoin(clientes, eq(operaciones.clienteId, clientes.id))
         .where(eq(clientes.empresaId, empresaId)),
+      activityPageQuery(empresaId),
     ])
   const planMap = new Map()
   for (const plan of planRows) {
@@ -70,6 +72,7 @@ export async function getAppState(empresaId) {
     })
   }
   const configuration = configurationRows[0]
+  const activityPage = toActivityPage(activityRows)
   return {
     caja: {
       efectivo: configuration?.cajaEfectivo ?? 0,
@@ -82,6 +85,8 @@ export async function getAppState(empresaId) {
     limiteReserva: configuration?.limiteReserva ?? 0,
     planes: [...planMap.values()],
     clientes: [...clientMap.values()],
+    actividad: activityPage.items,
+    hasMoreActividad: activityPage.hasMore,
   }
 }
 export function toDomainPlan(plan) {

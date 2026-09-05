@@ -16,7 +16,8 @@ import {
 } from "./finance-rules.service.js"
 import { toDomainPlan } from "./state.service.js"
 import { requireModalidad, requireRecord } from "./validation.service.js"
-export async function createOperation(empresaId, value) {
+import { logActivity } from "./activity.service.js"
+export async function createOperation(empresaId, value, actor) {
   const input = parseCreateOperationInput(value)
   const queries = [
     db
@@ -90,94 +91,137 @@ export async function createOperation(empresaId, value) {
     )
   }
   const now = new Date()
-  const clienteId = existingClientRows[0]?.id ?? `c_${crypto.randomUUID()}`
+  const existingClient = existingClientRows[0]
+  const clienteId = existingClient?.id ?? `c_${crypto.randomUUID()}`
+  const clientChanged =
+    existingClient &&
+    ["nombre", "dni", "telefono", "direccion"].some(
+      (field) => existingClient[field] !== input.cliente[field],
+    )
   const operacionId = `op_${crypto.randomUUID()}`
   const financing = calculateFinancing(input.operacion.monto, plan)
   const fechaInicio = toIsoDate(now)
   const proximoVencimiento = getNextDueDate(plan.frecuencia, now)
-  const { updatedConfiguration } = await db.transaction(async (tx) => {
-    const balanceRows =
-      input.operacion.modalidad === "Efectivo"
-        ? await tx
-            .update(configuracion)
-            .set({
-              cajaEfectivo: sql`${configuracion.cajaEfectivo} - ${input.operacion.monto}`,
-              activoEfectivo: sql`${configuracion.activoEfectivo} + ${input.operacion.monto}`,
-            })
-            .where(
-              and(
-                eq(configuracion.empresaId, empresaId),
-                gte(
-                  configuracion.cajaEfectivo,
-                  sql`${configuracion.limiteReserva} / 2 + ${input.operacion.monto}`,
+  const { updatedConfiguration, activities } = await db.transaction(
+    async (tx) => {
+      const balanceRows =
+        input.operacion.modalidad === "Efectivo"
+          ? await tx
+              .update(configuracion)
+              .set({
+                cajaEfectivo: sql`${configuracion.cajaEfectivo} - ${input.operacion.monto}`,
+                activoEfectivo: sql`${configuracion.activoEfectivo} + ${input.operacion.monto}`,
+              })
+              .where(
+                and(
+                  eq(configuracion.empresaId, empresaId),
+                  gte(
+                    configuracion.cajaEfectivo,
+                    sql`${configuracion.limiteReserva} / 2 + ${input.operacion.monto}`,
+                  ),
                 ),
-              ),
-            )
-            .returning()
-        : await tx
-            .update(configuracion)
-            .set({
-              cajaTransferencia: sql`${configuracion.cajaTransferencia} - ${input.operacion.monto}`,
-              activoTransferencia: sql`${configuracion.activoTransferencia} + ${input.operacion.monto}`,
-            })
-            .where(
-              and(
-                eq(configuracion.empresaId, empresaId),
-                gte(
-                  configuracion.cajaTransferencia,
-                  sql`${configuracion.limiteReserva} / 2 + ${input.operacion.monto}`,
+              )
+              .returning()
+          : await tx
+              .update(configuracion)
+              .set({
+                cajaTransferencia: sql`${configuracion.cajaTransferencia} - ${input.operacion.monto}`,
+                activoTransferencia: sql`${configuracion.activoTransferencia} + ${input.operacion.monto}`,
+              })
+              .where(
+                and(
+                  eq(configuracion.empresaId, empresaId),
+                  gte(
+                    configuracion.cajaTransferencia,
+                    sql`${configuracion.limiteReserva} / 2 + ${input.operacion.monto}`,
+                  ),
                 ),
-              ),
-            )
-            .returning()
-    const updatedConfiguration = balanceRows[0]
-    if (!updatedConfiguration) {
-      throw new AppError(
-        "Los fondos cambiaron y ya no alcanzan para completar la operación",
-        409,
-        "INSUFFICIENT_FUNDS",
-      )
-    }
-    if (planCreado) {
-      await tx.insert(planes).values({
-        id: plan.id,
-        empresaId,
-        nombre: plan.nombre,
-        cuotas: plan.cuotas,
-        frecuencia: plan.frecuencia,
-        interes: plan.interes,
-      })
-    }
-    if (existingClientRows[0]) {
-      await tx
-        .update(clientes)
-        .set(input.cliente)
-        .where(
-          and(eq(clientes.id, clienteId), eq(clientes.empresaId, empresaId)),
+              )
+              .returning()
+      const updatedConfiguration = balanceRows[0]
+      if (!updatedConfiguration) {
+        throw new AppError(
+          "Los fondos cambiaron y ya no alcanzan para completar la operación",
+          409,
+          "INSUFFICIENT_FUNDS",
         )
-    } else {
-      await tx.insert(clientes).values({
-        id: clienteId,
-        empresaId,
-        ...input.cliente,
+      }
+      if (planCreado) {
+        await tx.insert(planes).values({
+          id: plan.id,
+          empresaId,
+          nombre: plan.nombre,
+          cuotas: plan.cuotas,
+          frecuencia: plan.frecuencia,
+          interes: plan.interes,
+        })
+      }
+      if (existingClient) {
+        await tx
+          .update(clientes)
+          .set(input.cliente)
+          .where(
+            and(eq(clientes.id, clienteId), eq(clientes.empresaId, empresaId)),
+          )
+      } else {
+        await tx.insert(clientes).values({
+          id: clienteId,
+          empresaId,
+          ...input.cliente,
+        })
+      }
+      await tx.insert(operaciones).values({
+        id: operacionId,
+        clienteId,
+        planId: plan.id,
+        monto: input.operacion.monto,
+        modalidad: input.operacion.modalidad,
+        motivo: input.operacion.motivo,
+        totalDevolver: financing.totalDevolver,
+        cuotaValor: financing.cuotaValor,
+        fechaInicio,
+        pagosRealizados: 0,
+        estado: "al-dia",
+        proximoVencimiento,
       })
-    }
-    await tx.insert(operaciones).values({
-      id: operacionId,
-      clienteId,
-      planId: plan.id,
-      monto: input.operacion.monto,
-      modalidad: input.operacion.modalidad,
-      motivo: input.operacion.motivo,
-      totalDevolver: financing.totalDevolver,
-      cuotaValor: financing.cuotaValor,
-      fechaInicio,
-      pagosRealizados: 0,
-      estado: "al-dia",
-      proximoVencimiento,
-    })
-    return { updatedConfiguration }
-  })
+      const activities = []
+      if (planCreado) {
+        activities.push(
+          await logActivity(tx, empresaId, actor, {
+            tipo: "plan_creado",
+            titulo: "Plan de financiación creado",
+            detalle: `${plan.nombre} · ${plan.cuotas} cuotas · ${plan.interes}%`,
+          }),
+        )
+      }
+      if (!existingClient) {
+        activities.push(
+          await logActivity(tx, empresaId, actor, {
+            tipo: "cliente_creado",
+            titulo: "Cliente registrado",
+            detalle: `${input.cliente.nombre} · DNI ${input.cliente.dni}`,
+          }),
+        )
+      } else if (clientChanged) {
+        activities.push(
+          await logActivity(tx, empresaId, actor, {
+            tipo: "cliente_actualizado",
+            titulo: "Datos de cliente actualizados",
+            detalle: `${input.cliente.nombre} · DNI ${input.cliente.dni}`,
+          }),
+        )
+      }
+      activities.push(
+        await logActivity(tx, empresaId, actor, {
+          tipo: "operacion_creada",
+          titulo: "Operación de financiación creada",
+          detalle: `${input.cliente.nombre} · ${input.operacion.modalidad}`,
+          monto: input.operacion.monto,
+        }),
+      )
+      return { updatedConfiguration, activities }
+    },
+  )
   return {
     cliente: { id: clienteId, ...input.cliente },
     operacion: {
@@ -194,10 +238,11 @@ export async function createOperation(empresaId, value) {
       proximoVencimiento,
     },
     planCreado,
+    actividades: activities,
     ...toCapitalResponse(updatedConfiguration),
   }
 }
-export async function registerPayment(empresaId, operacionId, value) {
+export async function registerPayment(empresaId, operacionId, value, actor) {
   if (!operacionId || operacionId.length > 100) {
     throw new AppError(
       "Identificador de operación inválido",
@@ -213,6 +258,7 @@ export async function registerPayment(empresaId, operacionId, value) {
       cuotaValor: operaciones.cuotaValor,
       pagosRealizados: operaciones.pagosRealizados,
       cuotas: planes.cuotas,
+      clienteNombre: clientes.nombre,
     })
     .from(operaciones)
     .innerJoin(clientes, eq(operaciones.clienteId, clientes.id))
@@ -269,11 +315,18 @@ export async function registerPayment(empresaId, operacionId, value) {
         "CONFIGURATION_NOT_FOUND",
       )
     }
-    return { updatedOperation, updatedConfiguration }
+    const activity = await logActivity(tx, empresaId, actor, {
+      tipo: "pago_registrado",
+      titulo: "Pago de cuota registrado",
+      detalle: `${operation.clienteNombre} · ${modalidad}`,
+      monto: operation.cuotaValor,
+    })
+    return { updatedOperation, updatedConfiguration, activity }
   })
   return {
     operacionId,
     pagosRealizados: result.updatedOperation.pagosRealizados,
+    actividades: [result.activity],
     ...toCapitalResponse(result.updatedConfiguration),
   }
 }

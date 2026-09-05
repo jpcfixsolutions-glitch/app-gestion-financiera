@@ -5,16 +5,24 @@ import { db } from "../models/database.js"
 import { clientes, operaciones, planes } from "../models/schema.js"
 import { parsePlanInput } from "./finance-rules.service.js"
 import { toDomainPlan } from "./state.service.js"
-export async function createPlan(empresaId, value) {
+import { logActivity } from "./activity.service.js"
+export async function createPlan(empresaId, value, actor) {
   const input = parsePlanInput(value)
   const id = `p_${crypto.randomUUID()}`
-  const [created] = await db
-    .insert(planes)
-    .values({ id, empresaId, ...input })
-    .returning()
-  return toDomainPlan(created)
+  return db.transaction(async (tx) => {
+    const [created] = await tx
+      .insert(planes)
+      .values({ id, empresaId, ...input })
+      .returning()
+    const activity = await logActivity(tx, empresaId, actor, {
+      tipo: "plan_creado",
+      titulo: "Plan de financiación creado",
+      detalle: `${input.nombre} · ${input.cuotas} cuotas · ${input.interes}%`,
+    })
+    return { plan: toDomainPlan(created), actividades: [activity] }
+  })
 }
-export async function deletePlan(empresaId, id) {
+export async function deletePlan(empresaId, id, actor) {
   if (!id || id.length > 100) {
     throw new AppError(
       "Identificador de plan inválido",
@@ -24,7 +32,7 @@ export async function deletePlan(empresaId, id) {
   }
   const [planRows, usageRows] = await db.batch([
     db
-      .select({ id: planes.id })
+      .select({ id: planes.id, nombre: planes.nombre })
       .from(planes)
       .where(and(eq(planes.id, id), eq(planes.empresaId, empresaId)))
       .limit(1),
@@ -45,8 +53,15 @@ export async function deletePlan(empresaId, id) {
       "PLAN_IN_USE",
     )
   }
-  await db
-    .delete(planes)
-    .where(and(eq(planes.id, id), eq(planes.empresaId, empresaId)))
-  return { id }
+  return db.transaction(async (tx) => {
+    await tx
+      .delete(planes)
+      .where(and(eq(planes.id, id), eq(planes.empresaId, empresaId)))
+    const activity = await logActivity(tx, empresaId, actor, {
+      tipo: "plan_eliminado",
+      titulo: "Plan de financiación eliminado",
+      detalle: planRows[0].nombre,
+    })
+    return { id, actividades: [activity] }
+  })
 }

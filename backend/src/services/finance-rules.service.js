@@ -34,15 +34,9 @@ export function parseCreateOperationInput(value) {
     : requireString(operacion.planId, "operacion.planId", { max: 100 })
   return {
     cliente: {
-      nombre: requireString(cliente.nombre, "cliente.nombre", {
-        min: 2,
-        max: 120,
-      }),
-      dni: requireString(cliente.dni, "cliente.dni", { min: 5, max: 32 }),
-      telefono: requireString(cliente.telefono, "cliente.telefono", {
-        optional: true,
-        max: 40,
-      }),
+      nombre: requireClientName(cliente.nombre),
+      dni: requireDni(cliente.dni),
+      telefono: requirePhone(cliente.telefono),
       direccion: requireString(cliente.direccion, "cliente.direccion", {
         optional: true,
         max: 200,
@@ -62,6 +56,58 @@ export function parseCreateOperationInput(value) {
       planCustom,
     },
   }
+}
+function requireClientName(value) {
+  const nombre = requireString(value, "cliente.nombre", { min: 2, max: 120 })
+  if (!/^[\p{L}\p{M}]+(?:[ '\-’][\p{L}\p{M}]+)*$/u.test(nombre)) {
+    throw new AppError(
+      "El nombre solo puede contener letras, espacios, apóstrofes y guiones",
+      422,
+      "VALIDATION_ERROR",
+    )
+  }
+  return nombre
+}
+function requireDni(value) {
+  const rawDni = requireString(value, "cliente.dni", { min: 7, max: 12 })
+  if (!/^[\d.\s-]+$/.test(rawDni)) {
+    throw new AppError(
+      "El DNI solo puede contener números y separadores",
+      422,
+      "VALIDATION_ERROR",
+    )
+  }
+  const dni = rawDni.replace(/\D/g, "")
+  if (!/^\d{7,8}$/.test(dni)) {
+    throw new AppError(
+      "El DNI debe tener 7 u 8 dígitos",
+      422,
+      "VALIDATION_ERROR",
+    )
+  }
+  return dni
+}
+function requirePhone(value) {
+  const telefono = requireString(value, "cliente.telefono", {
+    min: 8,
+    max: 40,
+  })
+  if (!/^\+?[\d\s()-]+$/.test(telefono)) {
+    throw new AppError(
+      "El teléfono contiene caracteres no válidos",
+      422,
+      "VALIDATION_ERROR",
+    )
+  }
+  const digits = telefono.replace(/\D/g, "")
+  if (digits.length < 8 || digits.length > 15) {
+    throw new AppError(
+      "El teléfono debe tener entre 8 y 15 dígitos",
+      422,
+      "VALIDATION_ERROR",
+    )
+  }
+  return telefono
 }
 export function calculateFinancing(monto, plan) {
   if (plan.cuotas <= 0) {

@@ -24,7 +24,7 @@ test("normaliza una operación válida e ignora importes calculados por el clien
     cliente: {
       nombre: "  Ana Pérez  ",
       dni: " 30.123.456 ",
-      telefono: "",
+      telefono: "+54 11 4444-5555",
       direccion: "",
     },
     operacion: {
@@ -37,9 +37,36 @@ test("normaliza una operación válida e ignora importes calculados por el clien
     },
   })
   assert.equal(parsed.cliente.nombre, "Ana Pérez")
+  assert.equal(parsed.cliente.dni, "30123456")
   assert.equal(parsed.operacion.motivo, "Capital de trabajo")
   assert.equal("totalDevolver" in parsed.operacion, false)
   assert.equal("cuotaValor" in parsed.operacion, false)
+})
+test("valida nombre, DNI y teléfono del cliente", () => {
+  const validOperation = {
+    cliente: {
+      nombre: "Ana Pérez",
+      dni: "30.123.456",
+      telefono: "+54 11 4444-5555",
+      direccion: "",
+    },
+    operacion: {
+      monto: 10_000,
+      modalidad: "Efectivo",
+      motivo: "",
+      planId: "p1",
+    },
+  }
+  for (const cliente of [
+    { ...validOperation.cliente, nombre: "Ana 123" },
+    { ...validOperation.cliente, dni: "1234" },
+    { ...validOperation.cliente, telefono: "sin teléfono" },
+  ]) {
+    assert.throws(
+      () => parseCreateOperationInput({ ...validOperation, cliente }),
+      (error) => error instanceof AppError && error.code === "VALIDATION_ERROR",
+    )
+  }
 })
 test("rechaza planes con reglas financieras inválidas", () => {
   assert.throws(

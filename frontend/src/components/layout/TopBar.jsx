@@ -18,7 +18,7 @@ export default function TopBar({ caja, limiteReserva, onNuevaOperacion }) {
               className={`text-sm font-mono font-semibold ${
                 caja.efectivo <= limiteReserva / 2
                   ? "text-danger-600"
-                  : "text-slate-700"
+                  : "text-success-600"
               }`}
             >
               {fmt(caja.efectivo)}
@@ -32,7 +32,7 @@ export default function TopBar({ caja, limiteReserva, onNuevaOperacion }) {
               className={`text-sm font-mono font-semibold ${
                 caja.transferencia <= limiteReserva / 2
                   ? "text-danger-600"
-                  : "text-slate-700"
+                  : "text-success-600"
               }`}
             >
               {fmt(caja.transferencia)}

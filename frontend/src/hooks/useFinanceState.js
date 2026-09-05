@@ -6,6 +6,8 @@ const EMPTY_FINANCE_STATE = {
   limiteReserva: 0,
   planes: [],
   clientes: [],
+  actividad: [],
+  hasMoreActividad: false,
 }
 export function useFinanceState() {
   const [state, setStateRaw] = useState(EMPTY_FINANCE_STATE)

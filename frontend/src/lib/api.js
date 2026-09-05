@@ -3,6 +3,10 @@ import { apiRequest } from "@/lib/apiClient"
 export function fetchAppState() {
   return apiRequest("/state")
 }
+export function fetchActivity(before) {
+  const query = before ? `?before=${encodeURIComponent(before)}` : ""
+  return apiRequest(`/actividad${query}`)
+}
 export function crearOperacion(payload) {
   return apiRequest("/operaciones", {
     method: "POST",
@@ -19,6 +23,12 @@ export function actualizarLimite(limiteReserva) {
   return apiRequest("/configuracion/limite", {
     method: "PUT",
     body: JSON.stringify({ limiteReserva }),
+  })
+}
+export function registrarMovimientoCaja(movimiento) {
+  return apiRequest("/configuracion/caja/movimientos", {
+    method: "POST",
+    body: JSON.stringify(movimiento),
   })
 }
 export function agregarPlan(plan) {
