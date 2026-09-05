@@ -1,6 +1,11 @@
 import { useState } from "react"
 import { formatCurrency as fmt } from "@/domain/finance/formatters"
-import { actualizarLimite, agregarPlan, eliminarPlan } from "@/lib/api"
+import {
+  actualizarLimite,
+  agregarPlan,
+  editarPlan,
+  eliminarPlan,
+} from "@/lib/api"
 import Icon from "@/components/ui/Icon"
 
 const EMPTY_PLAN = {
@@ -9,10 +14,12 @@ const EMPTY_PLAN = {
   frecuencia: "Mensual",
   interes: "15",
 }
+const MAX_PLANS = 6
 
 export default function Config({ state, setState }) {
   const [limiteInput, setLimiteInput] = useState(String(state.limiteReserva))
   const [nuevoPlan, setNuevoPlan] = useState(EMPTY_PLAN)
+  const [editingPlanId, setEditingPlanId] = useState(null)
   const [savingAction, setSavingAction] = useState(null)
   const [actionError, setActionError] = useState(null)
   async function saveLimite() {
@@ -37,7 +44,7 @@ export default function Config({ state, setState }) {
       setSavingAction(null)
     }
   }
-  async function addPlan() {
+  async function savePlan() {
     if (
       !nuevoPlan.nombre ||
       !nuevoPlan.cuotas ||
@@ -45,6 +52,10 @@ export default function Config({ state, setState }) {
       savingAction
     )
       return
+    if (!editingPlanId && state.planes.length >= MAX_PLANS) {
+      setActionError("Ya alcanzaste el máximo de 6 métodos de financiación.")
+      return
+    }
     const plan = {
       nombre: nuevoPlan.nombre,
       cuotas: Number(nuevoPlan.cuotas),
@@ -54,23 +65,46 @@ export default function Config({ state, setState }) {
     setSavingAction("plan")
     setActionError(null)
     try {
-      const result = await agregarPlan(plan)
+      const result = editingPlanId
+        ? await editarPlan(editingPlanId, plan)
+        : await agregarPlan(plan)
       setState((previous) => ({
         ...previous,
-        planes: [...previous.planes, result.plan],
+        planes: editingPlanId
+          ? previous.planes.map((currentPlan) =>
+              currentPlan.id === result.plan.id ? result.plan : currentPlan,
+            )
+          : [...previous.planes, result.plan],
         actividad: [
           ...[...(result.actividades ?? [])].reverse(),
           ...previous.actividad,
         ],
       }))
       setNuevoPlan(EMPTY_PLAN)
+      setEditingPlanId(null)
     } catch (error) {
       setActionError(
-        error instanceof Error ? error.message : "No se pudo agregar el plan",
+        error instanceof Error ? error.message : "No se pudo guardar el plan",
       )
     } finally {
       setSavingAction(null)
     }
+  }
+  function startEditingPlan(plan) {
+    if (savingAction) return
+    setEditingPlanId(plan.id)
+    setNuevoPlan({
+      nombre: plan.nombre,
+      cuotas: String(plan.cuotas),
+      frecuencia: plan.frecuencia,
+      interes: String(plan.interes),
+    })
+    setActionError(null)
+  }
+  function cancelEditingPlan() {
+    setEditingPlanId(null)
+    setNuevoPlan(EMPTY_PLAN)
+    setActionError(null)
   }
   async function deletePlan(id) {
     if (savingAction) return
@@ -86,6 +120,7 @@ export default function Config({ state, setState }) {
           ...previous.actividad,
         ],
       }))
+      if (editingPlanId === id) cancelEditingPlan()
     } catch (error) {
       setActionError(
         error instanceof Error ? error.message : "No se pudo eliminar el plan",
@@ -150,13 +185,18 @@ export default function Config({ state, setState }) {
       </section>
 
       <section className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-        <div className="px-5 py-4 border-b border-slate-100">
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-            Métodos de Financiación Predeterminados
-          </p>
-          <p className="text-sm text-slate-600 mt-0.5">
-            Planes disponibles al registrar una nueva operación.
-          </p>
+        <div className="px-5 py-4 border-b border-slate-100 flex items-start justify-between gap-3">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Métodos de Financiación Predeterminados
+            </p>
+            <p className="text-sm text-slate-600 mt-0.5">
+              Planes disponibles al registrar una nueva operación.
+            </p>
+          </div>
+          <span className="shrink-0 rounded-full bg-brand-50 px-2.5 py-1 text-[10px] font-mono font-semibold text-brand-700">
+            {state.planes.length} / {MAX_PLANS}
+          </span>
         </div>
         <div className="divide-y divide-slate-50">
           {state.planes.length === 0 ? (
@@ -175,21 +215,31 @@ export default function Config({ state, setState }) {
                     {p.cuotas} cuotas · {p.frecuencia} · {p.interes}% interés
                   </p>
                 </div>
-                <button
-                  onClick={() => deletePlan(p.id)}
-                  disabled={savingAction !== null}
-                  aria-label={`Eliminar plan ${p.nombre}`}
-                  className="text-slate-300 hover:text-danger-600 disabled:opacity-40 transition-colors p-1"
-                >
-                  <Icon name="trash" cls="w-4 h-4" />
-                </button>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => startEditingPlan(p)}
+                    disabled={savingAction !== null}
+                    aria-label={`Editar plan ${p.nombre}`}
+                    className="text-slate-300 hover:text-brand-600 disabled:opacity-40 transition-colors p-1.5"
+                  >
+                    <Icon name="edit" cls="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => deletePlan(p.id)}
+                    disabled={savingAction !== null}
+                    aria-label={`Eliminar plan ${p.nombre}`}
+                    className="text-slate-300 hover:text-danger-600 disabled:opacity-40 transition-colors p-1.5"
+                  >
+                    <Icon name="trash" cls="w-4 h-4" />
+                  </button>
+                </div>
               </div>
             ))
           )}
         </div>
         <div className="border-t border-slate-100 px-5 py-5 space-y-3">
           <p className="text-[11px] font-mono uppercase tracking-widest text-slate-400">
-            Nuevo método
+            {editingPlanId ? "Editar método" : "Nuevo método"}
           </p>
           <input
             placeholder="Nombre del plan"
@@ -248,14 +298,39 @@ export default function Config({ state, setState }) {
               />
             </div>
           </div>
-          <button
-            onClick={addPlan}
-            disabled={savingAction !== null}
-            className="w-full rounded-lg bg-brand-600 hover:bg-brand-700 disabled:opacity-60 disabled:cursor-not-allowed text-white py-3 text-sm font-semibold flex items-center justify-center gap-2 transition-colors"
-          >
-            <Icon name="plus" cls="w-4 h-4" />
-            {savingAction === "plan" ? "Agregando…" : "Agregar plan"}
-          </button>
+          <div className="flex gap-2">
+            {editingPlanId && (
+              <button
+                type="button"
+                onClick={cancelEditingPlan}
+                disabled={savingAction !== null}
+                className="flex-1 rounded-lg border border-slate-200 py-3 text-sm font-semibold text-slate-600 transition-colors hover:bg-slate-50 disabled:opacity-60"
+              >
+                Cancelar
+              </button>
+            )}
+            <button
+              onClick={savePlan}
+              disabled={
+                savingAction !== null ||
+                (!editingPlanId && state.planes.length >= MAX_PLANS)
+              }
+              className="flex-1 rounded-lg bg-brand-600 hover:bg-brand-700 disabled:opacity-60 disabled:cursor-not-allowed text-white py-3 text-sm font-semibold flex items-center justify-center gap-2 transition-colors"
+            >
+              <Icon name={editingPlanId ? "check" : "plus"} cls="w-4 h-4" />
+              {savingAction === "plan"
+                ? "Guardando…"
+                : editingPlanId
+                  ? "Guardar cambios"
+                  : "Agregar plan"}
+            </button>
+          </div>
+          {!editingPlanId && state.planes.length >= MAX_PLANS && (
+            <p className="text-center text-xs text-slate-400">
+              Alcanzaste el máximo de 6 métodos. Podés editar o eliminar uno
+              existente.
+            </p>
+          )}
         </div>
       </section>
     </div>

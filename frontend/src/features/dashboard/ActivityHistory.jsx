@@ -38,6 +38,10 @@ const EVENT_STYLE = {
     icon: "plus",
     color: "bg-brand-50 text-brand-600",
   },
+  plan_actualizado: {
+    icon: "edit",
+    color: "bg-brand-50 text-brand-600",
+  },
   plan_eliminado: {
     icon: "trash",
     color: "bg-danger-50 text-danger-600",
