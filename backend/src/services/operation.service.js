@@ -10,8 +10,10 @@ import {
 } from "../models/schema.js"
 import {
   calculateFinancing,
+  calculatePrincipalInstallment,
   getNextDueDate,
   parseCreateOperationInput,
+  resolvePaymentBalanceFields,
   toIsoDate,
 } from "./finance-rules.service.js"
 import { toDomainPlan } from "./state.service.js"
@@ -257,6 +259,8 @@ export async function registerPayment(empresaId, operacionId, value, actor) {
   const [operation] = await db
     .select({
       id: operaciones.id,
+      monto: operaciones.monto,
+      modalidadPrestamo: operaciones.modalidad,
       cuotaValor: operaciones.cuotaValor,
       pagosRealizados: operaciones.pagosRealizados,
       cuotas: planes.cuotas,
@@ -303,11 +307,20 @@ export async function registerPayment(empresaId, operacionId, value, actor) {
         "PAYMENT_ALREADY_REGISTERED",
       )
     }
+    const capitalAmortizado = calculatePrincipalInstallment(
+      operation.monto,
+      operation.cuotas,
+      updatedOperation.pagosRealizados,
+    )
     const balanceRows = await updateBalancesForPayment(
       tx,
       empresaId,
-      modalidad,
-      operation.cuotaValor,
+      {
+        modalidadCobro: modalidad,
+        modalidadPrestamo: operation.modalidadPrestamo,
+        cuotaValor: operation.cuotaValor,
+        capitalAmortizado,
+      },
     )
     const updatedConfiguration = balanceRows[0]
     if (!updatedConfiguration) {
@@ -332,22 +345,22 @@ export async function registerPayment(empresaId, operacionId, value, actor) {
     ...toCapitalResponse(result.updatedConfiguration),
   }
 }
-function updateBalancesForPayment(tx, empresaId, modalidad, cuotaValor) {
-  if (modalidad === "Efectivo") {
-    return tx
-      .update(configuracion)
-      .set({
-        cajaEfectivo: sql`${configuracion.cajaEfectivo} + ${cuotaValor}`,
-        activoEfectivo: sql`max(0, ${configuracion.activoEfectivo} - ${cuotaValor})`,
-      })
-      .where(eq(configuracion.empresaId, empresaId))
-      .returning()
-  }
+function updateBalancesForPayment(
+  tx,
+  empresaId,
+  { modalidadCobro, modalidadPrestamo, cuotaValor, capitalAmortizado },
+) {
+  const { cashField, outstandingField } = resolvePaymentBalanceFields(
+    modalidadCobro,
+    modalidadPrestamo,
+  )
+  const cashColumn = configuracion[cashField]
+  const outstandingColumn = configuracion[outstandingField]
   return tx
     .update(configuracion)
     .set({
-      cajaTransferencia: sql`${configuracion.cajaTransferencia} + ${cuotaValor}`,
-      activoTransferencia: sql`max(0, ${configuracion.activoTransferencia} - ${cuotaValor})`,
+      [cashField]: sql`${cashColumn} + ${cuotaValor}`,
+      [outstandingField]: sql`max(0, ${outstandingColumn} - ${capitalAmortizado})`,
     })
     .where(eq(configuracion.empresaId, empresaId))
     .returning()

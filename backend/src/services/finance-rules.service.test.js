@@ -3,15 +3,43 @@ import test from "node:test"
 import { AppError } from "../errors/app-error.js"
 import {
   calculateFinancing,
+  calculatePrincipalInstallment,
   getNextDueDate,
   parseCreateOperationInput,
   parsePlanInput,
+  resolvePaymentBalanceFields,
 } from "./finance-rules.service.js"
 test("calcula el total y la cuota en el backend", () => {
   assert.deepEqual(calculateFinancing(100_000, { cuotas: 6, interes: 20 }), {
     totalDevolver: 120_000,
     cuotaValor: 20_000,
   })
+})
+test("separa el capital amortizado del interés de la cuota", () => {
+  assert.equal(calculatePrincipalInstallment(100_000, 6, 1), 16_666.67)
+  assert.equal(calculatePrincipalInstallment(100_000, 6, 6), 16_666.65)
+})
+test("rechaza un número de pago fuera del plan", () => {
+  assert.throws(
+    () => calculatePrincipalInstallment(100_000, 6, 7),
+    (error) => error instanceof AppError && error.code === "INVALID_PAYMENT",
+  )
+})
+test("cobra en caja y amortiza en la modalidad original del préstamo", () => {
+  assert.deepEqual(
+    resolvePaymentBalanceFields("Efectivo", "Transferencia"),
+    {
+      cashField: "cajaEfectivo",
+      outstandingField: "activoTransferencia",
+    },
+  )
+  assert.deepEqual(
+    resolvePaymentBalanceFields("Transferencia", "Efectivo"),
+    {
+      cashField: "cajaTransferencia",
+      outstandingField: "activoEfectivo",
+    },
+  )
 })
 test("calcula el vencimiento según la frecuencia", () => {
   const start = new Date("2026-09-04T12:00:00.000Z")

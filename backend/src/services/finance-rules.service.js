@@ -124,6 +124,28 @@ export function calculateFinancing(monto, plan) {
   const cuotaValor = roundMoney(totalDevolver / plan.cuotas)
   return { totalDevolver, cuotaValor }
 }
+export function calculatePrincipalInstallment(monto, cuotas, paymentNumber) {
+  if (cuotas <= 0 || paymentNumber < 1 || paymentNumber > cuotas) {
+    throw new AppError(
+      "La cuota pagada no es válida para la operación",
+      422,
+      "INVALID_PAYMENT",
+    )
+  }
+  const regularPrincipal = roundMoney(monto / cuotas)
+  if (paymentNumber === cuotas) {
+    return roundMoney(monto - regularPrincipal * (cuotas - 1))
+  }
+  return regularPrincipal
+}
+export function resolvePaymentBalanceFields(paymentMethod, loanMethod) {
+  return {
+    cashField:
+      paymentMethod === "Efectivo" ? "cajaEfectivo" : "cajaTransferencia",
+    outstandingField:
+      loanMethod === "Efectivo" ? "activoEfectivo" : "activoTransferencia",
+  }
+}
 export function getNextDueDate(frecuencia, startDate = new Date()) {
   const daysByFrequency = {
     Diario: 1,
