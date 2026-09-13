@@ -8,6 +8,7 @@ import {
 } from "@/domain/finance/calculations"
 import { editarCliente } from "@/lib/api"
 import Icon from "@/components/ui/Icon"
+import { buildWhatsAppUrl } from "@/domain/finance/whatsapp"
 
 const PAGE_SIZE = 8
 
@@ -283,6 +284,7 @@ export default function Cartera({
         {visibleClients.map((client) => {
           const peorEstado = peorEstadoCliente(client.operaciones)
           const cfg = estadoConfig[peorEstado]
+          const whatsappUrl = buildWhatsAppUrl(client)
           const totalEfectivo = totalPorModalidad(
             client.operaciones,
             "Efectivo",
@@ -336,6 +338,18 @@ export default function Cartera({
                   {cfg.label}
                 </span>
               </button>
+              {whatsappUrl && (
+                <a
+                  href={whatsappUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label={`Enviar mensaje por WhatsApp a ${client.nombre}`}
+                  title="Enviar mensaje por WhatsApp"
+                  className="shrink-0 rounded-lg p-2 text-[#25D366] transition-colors hover:bg-[#25D366]/10 hover:text-[#128C7E] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#25D366] focus-visible:ring-offset-2"
+                >
+                  <Icon name="whatsapp" cls="h-5 w-5" />
+                </a>
+              )}
               <button
                 type="button"
                 onClick={() => setEditingClient(client)}
