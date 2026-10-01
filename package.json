@@ -13,8 +13,6 @@
     "db:generate": "pnpm --filter app-gestion-financiera-backend db:generate",
     "db:migrate": "pnpm --filter app-gestion-financiera-backend db:migrate",
     "db:push": "pnpm --filter app-gestion-financiera-backend db:push",
-    "db:seed": "pnpm --filter app-gestion-financiera-backend db:seed",
-    "db:setup": "pnpm --filter app-gestion-financiera-backend db:setup",
     "db:user": "pnpm --filter app-gestion-financiera-backend db:user",
     "db:studio": "pnpm --filter app-gestion-financiera-backend db:studio",
     "format": "pnpm --filter app-gestion-financiera-frontend format"

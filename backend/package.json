@@ -15,8 +15,6 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
-    "db:seed": "node src/scripts/seed.js",
-    "db:setup": "pnpm db:migrate && pnpm db:seed",
     "db:user": "node src/scripts/create-user.js",
     "db:studio": "drizzle-kit studio"
   },
