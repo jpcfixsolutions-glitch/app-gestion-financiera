@@ -1,5 +1,5 @@
 import { eq } from "drizzle-orm"
-import { getInitialUserPassword } from "../config/env.js"
+import { getInitialUserPassword, getCreatorCredentials } from "../config/env.js"
 import { closeDatabase, db } from "../models/database.js"
 import {
   actividad,
@@ -20,6 +20,13 @@ async function seed() {
 
   const passwordHash = await hashPassword(getInitialUserPassword())
   const createdAt = new Date().toISOString()
+  
+  const creatorCreds = getCreatorCredentials()
+  if (!creatorCreds.email || !creatorCreds.password) {
+    throw new Error("Faltan variables obligatorias para el creador: CREATOR_EMAIL y CREATOR_PASSWORD")
+  }
+  const creatorHash = await hashPassword(creatorCreds.password)
+
 
   await db.batch([
     db
@@ -54,6 +61,18 @@ async function seed() {
         username: "OsmarBonaldi",
         passwordHash,
         rol: "admin",
+        createdAt,
+      })
+      .onConflictDoNothing(),
+    db
+      .insert(usuarios)
+      .values({
+        id: "usr_creator",
+        empresaId: EMPRESA_ID,
+        nombre: "Creador",
+        username: creatorCreds.email,
+        passwordHash: creatorHash,
+        rol: "creator",
         createdAt,
       })
       .onConflictDoNothing(),

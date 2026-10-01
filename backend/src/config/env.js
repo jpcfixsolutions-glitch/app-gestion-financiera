@@ -61,3 +61,9 @@ export function getInitialUserPassword() {
     "CAMBIAR_POR_CONTRASEÑA_SEGURA",
   )
 }
+export function getCreatorCredentials() {
+  return {
+    email: process.env.CREATOR_EMAIL?.trim(),
+    password: process.env.CREATOR_PASSWORD?.trim()
+  }
+}

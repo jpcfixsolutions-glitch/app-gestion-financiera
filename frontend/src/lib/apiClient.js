@@ -29,6 +29,11 @@ export async function apiRequest(path, options = {}) {
       window.dispatchEvent(new Event("gf:unauthorized"))
     }
     const errorBody = isRecord(data) ? data : null
+    
+    if (response.status === 402 || errorBody?.code === "SUBSCRIPTION_EXPIRED") {
+      window.dispatchEvent(new Event("gf:subscription_expired"))
+    }
+
     throw new ApiError(
       typeof errorBody?.error === "string"
         ? errorBody.error

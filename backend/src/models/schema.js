@@ -23,6 +23,8 @@ export const configuracion = sqliteTable(
     cajaTransferencia: real("caja_transferencia").notNull().default(0),
     activoEfectivo: real("activo_efectivo").notNull().default(0),
     activoTransferencia: real("activo_transferencia").notNull().default(0),
+    subscriptionDay: integer("subscription_day"),
+    nextExpiry: text("next_expiry"),
   },
   (table) => [index("configuracion_empresa_idx").on(table.empresaId)],
 )

@@ -2,10 +2,27 @@ import { useFinanceState } from "@/hooks/useFinanceState"
 import { AuthProvider, useAuth } from "@/features/auth/AuthContext"
 import AppShell from "@/app/AppShell"
 import LoginPage from "@/features/auth/LoginPage"
+import { SubscriptionProvider, useSubscription } from "@/features/subscription/SubscriptionContext"
+import SubscriptionGate from "@/features/subscription/SubscriptionGate"
+import CreatorPanel from "@/features/subscription/CreatorPanel"
 /** Only mounts after auth — avoids firing useFinanceState (and its /api/state fetch) before login. */
-function AuthenticatedApp() {
+function BusinessApp() {
   const financeState = useFinanceState()
-  return <AppShell {...financeState} />
+  return (
+    <SubscriptionGate>
+      <AppShell {...financeState} />
+    </SubscriptionGate>
+  )
+}
+
+function AuthenticatedApp() {
+  const { user } = useAuth()
+  
+  if (user?.rol === "creator") {
+    return <CreatorPanel />
+  }
+
+  return <BusinessApp />
 }
 function AuthGate() {
   const { isAuthenticated, isLoading } = useAuth()
@@ -24,7 +41,11 @@ function AuthGate() {
   if (!isAuthenticated) {
     return <LoginPage />
   }
-  return <AuthenticatedApp />
+  return (
+    <SubscriptionProvider>
+      <AuthenticatedApp />
+    </SubscriptionProvider>
+  )
 }
 export default function App() {
   return (

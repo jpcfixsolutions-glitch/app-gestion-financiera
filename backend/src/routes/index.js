@@ -7,14 +7,25 @@ import configurationRoutes from "./configuration.routes.js"
 import operationRoutes from "./operation.routes.js"
 import planRoutes from "./plan.routes.js"
 import stateRoutes from "./state.routes.js"
+import subscriptionRoutes from "./subscription.routes.js"
+import { requireAuth } from "../middlewares/auth.middleware.js"
+import { requireActiveSubscription } from "../middlewares/subscription.middleware.js"
+
 const routes = Router()
 routes.get("/", healthController)
 routes.get("/health", healthController)
 routes.use("/auth", authRoutes)
-routes.use("/clientes", clientRoutes)
-routes.use("/actividad", activityRoutes)
-routes.use("/state", stateRoutes)
-routes.use("/operaciones", operationRoutes)
-routes.use("/configuracion", configurationRoutes)
-routes.use("/planes", planRoutes)
+routes.use("/subscription", subscriptionRoutes)
+
+// Exclude these from subscription block: auth, subscription, health (already above)
+// The rest should be protected by auth and active subscription
+const businessAuth = [requireAuth, requireActiveSubscription]
+
+routes.use("/clientes", businessAuth, clientRoutes)
+routes.use("/actividad", businessAuth, activityRoutes)
+routes.use("/state", businessAuth, stateRoutes)
+routes.use("/operaciones", businessAuth, operationRoutes)
+routes.use("/configuracion", businessAuth, configurationRoutes)
+routes.use("/planes", businessAuth, planRoutes)
+
 export default routes
