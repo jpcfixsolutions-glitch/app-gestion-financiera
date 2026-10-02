@@ -62,8 +62,15 @@ export function getInitialUserPassword() {
   )
 }
 export function getCreatorCredentials() {
+  const email = process.env.CREATOR_EMAIL?.trim()
+  const password = process.env.CREATOR_PASSWORD?.trim()
+  const empresaId = process.env.CREATOR_EMPRESA_ID?.trim() || "emp1"
+  if (!email || !password) {
+    throw new Error("CREATOR_EMAIL y CREATOR_PASSWORD deben estar configuradas para crear el operador interno")
+  }
   return {
-    email: process.env.CREATOR_EMAIL?.trim(),
-    password: process.env.CREATOR_PASSWORD?.trim()
+    email,
+    password,
+    empresaId,
   }
 }

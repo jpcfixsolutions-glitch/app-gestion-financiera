@@ -54,13 +54,13 @@ test("Subscription Domain Logic", async (t) => {
     const nextExpiryStr = "2026-11-10T15:00:00.000Z"
     
     // Time difference is 5 days exactly
-    let state = getDerivedStateMock(now, nextExpiryStr, 10)
+    let state = getSubscriptionDerivedState(10, nextExpiryStr, now)
     assert.equal(state.isWarning, true)
     assert.equal(state.daysRemaining, 5)
     
     // Time difference is 5 days and 1 second (so Math.ceil gives 6)
     const slightlyBefore = new Date(now.getTime() - 1000)
-    state = getDerivedStateMock(slightlyBefore, nextExpiryStr, 10)
+    state = getSubscriptionDerivedState(10, nextExpiryStr, slightlyBefore)
     assert.equal(state.isWarning, false)
     assert.equal(state.daysRemaining, 6)
   })
@@ -69,7 +69,7 @@ test("Subscription Domain Logic", async (t) => {
     const nextExpiryStr = "2026-11-10T15:00:00.000Z"
     const now = new Date("2026-11-10T15:00:00.001Z") // 1ms after
     
-    const state = getDerivedStateMock(now, nextExpiryStr, 10)
+    const state = getSubscriptionDerivedState(10, nextExpiryStr, now)
     assert.equal(state.isExpired, true)
     assert.equal(state.isWarning, false)
     assert.equal(state.daysRemaining, 0)
@@ -82,22 +82,3 @@ test("Subscription Domain Logic", async (t) => {
     assert.equal(state.isWarning, false)
   })
 })
-
-function getDerivedStateMock(now, nextExpiryStr, day) {
-  const nextExpiry = new Date(nextExpiryStr)
-  const isExpired = now > nextExpiry
-  
-  const msRemaining = nextExpiry.getTime() - now.getTime()
-  const daysRemaining = Math.max(0, Math.ceil(msRemaining / (1000 * 60 * 60 * 24)))
-  
-  const isWarning = !isExpired && daysRemaining <= 5
-
-  return {
-    isConfigured: true,
-    subscriptionDay: day,
-    nextExpiry: nextExpiryStr,
-    isExpired,
-    isWarning,
-    daysRemaining
-  }
-}

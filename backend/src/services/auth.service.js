@@ -37,6 +37,7 @@ export async function login(value) {
       username: user.username,
       name: user.nombre,
       empresaId: user.empresaId,
+      rol: user.rol,
     }),
   }
 }
@@ -49,5 +50,6 @@ function toPublicUser(user) {
     username: user.username,
     displayName: user.name,
     empresaId: user.empresaId,
+    rol: user.rol,
   }
 }

@@ -1,211 +1,141 @@
+import crypto from "node:crypto"
 import { eq } from "drizzle-orm"
 import { AppError } from "../errors/app-error.js"
 import { db } from "../models/database.js"
 import { configuracion } from "../models/schema.js"
+import { logActivity } from "./activity.service.js"
 
-const BUSINESS_TIMEZONE = process.env.BUSINESS_TIMEZONE || "America/Argentina/Buenos_Aires"
+export const BUSINESS_TIMEZONE =
+  process.env.BUSINESS_TIMEZONE || "America/Argentina/Buenos_Aires"
 
-/**
- * Calculates the next expiration date based on the subscription day, current date, and timezone.
- * Returns the expiration date in UTC as an ISO string.
- */
-export function calculateNextExpiry(subscriptionDay, now, timezone) {
-  const options = { timeZone: timezone, year: "numeric", month: "numeric", day: "numeric" }
-  const formatter = new Intl.DateTimeFormat("en-US", options)
-  
-  // Format returns MM/DD/YYYY
-  const parts = formatter.formatToParts(now)
-  const currentYear = parseInt(parts.find((p) => p.type === "year").value, 10)
-  const currentMonth = parseInt(parts.find((p) => p.type === "month").value, 10)
-  const currentDay = parseInt(parts.find((p) => p.type === "day").value, 10)
+const DAY_MS = 24 * 60 * 60 * 1000
 
-  // Calculate days in current month
-  const daysInCurrentMonth = new Date(currentYear, currentMonth, 0).getDate()
-  const adjustedDayCurrent = Math.min(subscriptionDay, daysInCurrentMonth)
-
-  let targetYear = currentYear
-  let targetMonth = currentMonth
-  let targetDay = adjustedDayCurrent
-
-  if (currentDay >= adjustedDayCurrent) {
-    // Expiration goes to next month
-    targetMonth = currentMonth + 1
-    if (targetMonth > 12) {
-      targetMonth = 1
-      targetYear++
-    }
-    const daysInTargetMonth = new Date(targetYear, targetMonth, 0).getDate()
-    targetDay = Math.min(subscriptionDay, daysInTargetMonth)
-  }
-
-  // Create the exact time string for 23:59:59.999 in the target timezone
-  // We can construct this using the IANA timezone. A simple way in JS without huge libraries is:
-  // Convert local target datetime to UTC string.
-  
-  const formattedMonth = String(targetMonth).padStart(2, "0")
-  const formattedDay = String(targetDay).padStart(2, "0")
-  
-  // ISO string without Z is treated as local time
-  const isoLocal = `${targetYear}-${formattedMonth}-${formattedDay}T23:59:59.999`
-  
-  // Parse in the given timezone (JS doesn't natively do this easily, but we can use a small trick)
-  // Actually, since we only need UTC string, we can use standard Date logic if we adjust for timezone offset
-  // A cleaner approach for timezone handling in vanilla JS is to create a date in UTC, then find the offset
-  
-  // Since we want 23:59:59.999 in America/Argentina/Buenos_Aires (usually UTC-3)
-  // It's safer to use a function to calculate the UTC time.
-  const dateStr = `${targetYear}-${formattedMonth}-${formattedDay}T23:59:59.999`
-  
-  // To avoid dealing with complex Date parsing for specific timezones in vanilla Node,
-  // we can use Intl.DateTimeFormat with a known UTC time and find the difference, or just assume UTC-3 for Buenos Aires.
-  // But let's do it robustly:
-  
-  // We create a date string for the target time, assuming it's in the local timezone (Node's local)
-  // This is wrong because Node's local could be UTC.
-  
-  // Let's implement a solid calculation for Business Timezone:
-  // For America/Argentina/Buenos_Aires, it's always UTC-03:00.
-  // But to be generic:
-  return getUtcStringFromLocal(targetYear, targetMonth, targetDay, 23, 59, 59, 999, timezone)
+function getDateParts(date, timeZone) {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    year: "numeric",
+    month: "numeric",
+    day: "numeric",
+  }).formatToParts(date)
+  return Object.fromEntries(
+    parts
+      .filter((part) => part.type !== "literal")
+      .map((part) => [part.type, Number(part.value)]),
+  )
 }
 
-function getUtcStringFromLocal(year, month, day, hour, minute, second, ms, timezone) {
-  // Approximate way using standard JS:
-  // Start with UTC date matching the local values
-  const utcDate = new Date(Date.UTC(year, month - 1, day, hour, minute, second, ms))
-  
-  // Find the offset for this specific date in the target timezone
-  const formatter = new Intl.DateTimeFormat("en-US", {
-    timeZone: timezone,
-    year: "numeric", month: "numeric", day: "numeric",
-    hour: "numeric", minute: "numeric", second: "numeric",
-    hour12: false
+function daysInMonth(year, month) {
+  return new Date(Date.UTC(year, month, 0)).getUTCDate()
+}
+
+function offsetAt(date, timeZone) {
+  const name = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    timeZoneName: "longOffset",
   })
-  
-  const parts = formatter.formatToParts(utcDate)
-  
-  const tzYear = parseInt(parts.find(p => p.type === "year").value, 10)
-  const tzMonth = parseInt(parts.find(p => p.type === "month").value, 10)
-  const tzDay = parseInt(parts.find(p => p.type === "day").value, 10)
-  const tzHour = parseInt(parts.find(p => p.type === "hour").value, 10)
-  
-  // Calculate difference
-  const localApparent = new Date(Date.UTC(tzYear, tzMonth - 1, tzDay, tzHour, minute, second, ms))
-  const offsetMs = localApparent.getTime() - utcDate.getTime()
-  
-  // Adjust the original UTC date to correct for the offset
-  // Wait, if we want target local time to map to UTC, we subtract the offset from the apparent UTC time
-  const targetUtc = new Date(utcDate.getTime() - offsetMs)
-  return targetUtc.toISOString()
+    .formatToParts(date)
+    .find((part) => part.type === "timeZoneName")?.value
+  const match = name?.match(/^GMT([+-])(\d{2}):(\d{2})$/)
+  if (!match) throw new AppError("La zona horaria de negocio no es válida", 500)
+  const sign = match[1] === "+" ? 1 : -1
+  return sign * (Number(match[2]) * 60 + Number(match[3])) * 60 * 1000
 }
 
-export function getSubscriptionDerivedState(subscriptionDay, nextExpiryStr) {
-  if (!subscriptionDay || !nextExpiryStr) {
-    return {
-      isConfigured: false,
-      subscriptionDay: null,
-      nextExpiry: null,
-      isExpired: false,
-      isWarning: false,
-      daysRemaining: null
+function localEndOfDayToUtc(year, month, day, timezone) {
+  const localAsUtc = Date.UTC(year, month - 1, day, 23, 59, 59, 999)
+  let candidate = new Date(localAsUtc - offsetAt(new Date(localAsUtc), timezone))
+  // A second pass covers offset changes around DST transitions.
+  candidate = new Date(localAsUtc - offsetAt(candidate, timezone))
+  return candidate.toISOString()
+}
+
+/** Calculates the next cutoff in the business timezone and returns a UTC ISO instant. */
+export function calculateNextExpiry(subscriptionDay, now, timezone) {
+  if (!Number.isInteger(subscriptionDay) || subscriptionDay < 1 || subscriptionDay > 31) {
+    throw new AppError("El día de suscripción debe estar entre 1 y 31", 400)
+  }
+  if (!(now instanceof Date) || Number.isNaN(now.getTime())) {
+    throw new AppError("La fecha actual no es válida", 500)
+  }
+  const { year, month, day } = getDateParts(now, timezone)
+  const currentCutoff = Math.min(subscriptionDay, daysInMonth(year, month))
+  let targetYear = year
+  let targetMonth = month
+  if (day >= currentCutoff) {
+    targetMonth += 1
+    if (targetMonth === 13) {
+      targetMonth = 1
+      targetYear += 1
     }
   }
+  const targetDay = Math.min(subscriptionDay, daysInMonth(targetYear, targetMonth))
+  return localEndOfDayToUtc(targetYear, targetMonth, targetDay, timezone)
+}
 
-  const now = new Date()
-  const nextExpiry = new Date(nextExpiryStr)
-  const isExpired = now > nextExpiry
-  
-  const msRemaining = nextExpiry.getTime() - now.getTime()
-  const daysRemaining = Math.max(0, Math.ceil(msRemaining / (1000 * 60 * 60 * 24)))
-  
-  const isWarning = !isExpired && daysRemaining <= 5
-
+export function getSubscriptionDerivedState(subscriptionDay, nextExpiryStr, now = new Date()) {
+  const nextExpiry = nextExpiryStr ? new Date(nextExpiryStr) : null
+  if (
+    !Number.isInteger(subscriptionDay) || subscriptionDay < 1 || subscriptionDay > 31 ||
+    !nextExpiry || Number.isNaN(nextExpiry.getTime())
+  ) {
+    return { isConfigured: false, subscriptionDay: null, nextExpiry: null, isExpired: false, isWarning: false, daysRemaining: null }
+  }
+  const isExpired = now.getTime() > nextExpiry.getTime()
+  const daysRemaining = Math.max(0, Math.ceil((nextExpiry.getTime() - now.getTime()) / DAY_MS))
   return {
     isConfigured: true,
     subscriptionDay,
-    nextExpiry: nextExpiryStr,
+    nextExpiry: nextExpiry.toISOString(),
     isExpired,
-    isWarning,
-    daysRemaining
+    isWarning: !isExpired && daysRemaining <= 5,
+    daysRemaining,
   }
 }
 
-export async function getSubscriptionStatus(empresaId) {
-  const [config] = await db
-    .select({
-      subscriptionDay: configuracion.subscriptionDay,
-      nextExpiry: configuracion.nextExpiry
-    })
-    .from(configuracion)
-    .where(eq(configuracion.empresaId, empresaId))
-    .limit(1)
-
-  if (!config) {
-    // If no config row at all for this company, it's unconfigured
-    return getSubscriptionDerivedState(null, null)
-  }
-
-  return getSubscriptionDerivedState(config.subscriptionDay, config.nextExpiry)
+async function getConfiguration(executor, empresaId) {
+  const [row] = await executor.select({ id: configuracion.id, subscriptionDay: configuracion.subscriptionDay, nextExpiry: configuracion.nextExpiry }).from(configuracion).where(eq(configuracion.empresaId, empresaId)).limit(1)
+  return row
 }
 
-export async function configureSubscription(empresaId, day) {
-  if (day < 1 || day > 31) {
-    throw new AppError("El día de suscripción debe estar entre 1 y 31", 400)
-  }
-
-  const now = new Date()
-  const nextExpiry = calculateNextExpiry(day, now, BUSINESS_TIMEZONE)
-
-  // Upsert config or just update since config is always created in seed for emp1.
-  // In a real app we might need to upsert, but here configuracion exists per tenant.
-  const result = await db.update(configuracion)
-    .set({
-      subscriptionDay: day,
-      nextExpiry
-    })
-    .where(eq(configuracion.empresaId, empresaId))
-    .returning({
-      subscriptionDay: configuracion.subscriptionDay,
-      nextExpiry: configuracion.nextExpiry
-    })
-
-  if (result.length === 0) {
-    // If no config row existed, we create it (assuming some defaults for other fields if nullable, 
-    // but they are not null with defaults in schema, so this works)
-    const [inserted] = await db.insert(configuracion).values({
-      id: crypto.randomUUID(),
-      empresaId,
-      subscriptionDay: day,
-      nextExpiry,
-      // all other fields have defaults in schema except they might throw if not present in some sqlite configurations
-      // but drizzle schema has `.default(0)` for them.
-    }).returning({
-      subscriptionDay: configuracion.subscriptionDay,
-      nextExpiry: configuracion.nextExpiry
-    })
-    return getSubscriptionDerivedState(inserted.subscriptionDay, inserted.nextExpiry)
-  }
-
-  return getSubscriptionDerivedState(result[0].subscriptionDay, result[0].nextExpiry)
+export async function getSubscriptionStatus(empresaId, now = new Date()) {
+  const config = await getConfiguration(db, empresaId)
+  return getSubscriptionDerivedState(config?.subscriptionDay, config?.nextExpiry, now)
 }
 
-export async function renewSubscription(empresaId) {
-  const status = await getSubscriptionStatus(empresaId)
-  
-  if (!status.isConfigured) {
-    throw new AppError("La suscripción no está configurada", 400)
+export async function configureSubscription(empresaId, day, actor) {
+  if (!Number.isInteger(day) || day < 1 || day > 31) {
+    throw new AppError("El día de suscripción debe estar entre 1 y 31", 400, "VALIDATION_ERROR")
   }
-  
-  if (!status.isExpired) {
-    throw new AppError("La suscripción no está vencida", 400)
-  }
+  const nextExpiry = calculateNextExpiry(day, new Date(), BUSINESS_TIMEZONE)
+  return db.transaction(async (tx) => {
+    const existing = await getConfiguration(tx, empresaId)
+    if (existing) {
+      await tx.update(configuracion).set({ subscriptionDay: day, nextExpiry }).where(eq(configuracion.id, existing.id))
+    } else {
+      await tx.insert(configuracion).values({ id: `cfg_${crypto.randomUUID()}`, empresaId, subscriptionDay: day, nextExpiry })
+    }
+    await logActivity(tx, empresaId, actor, {
+      tipo: "subscription_configurada",
+      titulo: "Suscripción configurada",
+      detalle: `Día de corte: ${day}. Vencimiento anterior: ${existing?.nextExpiry || "sin configurar"}`,
+    })
+    return getSubscriptionDerivedState(day, nextExpiry)
+  })
+}
 
-  const now = new Date()
-  const nextExpiry = calculateNextExpiry(status.subscriptionDay, now, BUSINESS_TIMEZONE)
-
-  await db.update(configuracion)
-    .set({ nextExpiry })
-    .where(eq(configuracion.empresaId, empresaId))
-
-  return getSubscriptionDerivedState(status.subscriptionDay, nextExpiry)
+export async function renewSubscription(empresaId, actor) {
+  return db.transaction(async (tx) => {
+    const existing = await getConfiguration(tx, empresaId)
+    const status = getSubscriptionDerivedState(existing?.subscriptionDay, existing?.nextExpiry)
+    if (!status.isConfigured) throw new AppError("La suscripción no está configurada", 400, "SUBSCRIPTION_UNCONFIGURED")
+    if (!status.isExpired) throw new AppError("La suscripción no está vencida", 400, "SUBSCRIPTION_NOT_EXPIRED")
+    const nextExpiry = calculateNextExpiry(status.subscriptionDay, new Date(), BUSINESS_TIMEZONE)
+    await tx.update(configuracion).set({ nextExpiry }).where(eq(configuracion.id, existing.id))
+    await logActivity(tx, empresaId, actor, {
+      tipo: "subscription_reactivada",
+      titulo: "Suscripción reactivada",
+      detalle: `Vencimiento anterior: ${existing.nextExpiry}. Nuevo vencimiento: ${nextExpiry}`,
+    })
+    return getSubscriptionDerivedState(status.subscriptionDay, nextExpiry)
+  })
 }

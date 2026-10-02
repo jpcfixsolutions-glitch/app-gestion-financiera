@@ -16,6 +16,7 @@
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
     "db:user": "node src/scripts/create-user.js",
+    "db:subscription-manager": "node src/scripts/create-subscription-manager.js",
     "db:studio": "drizzle-kit studio"
   },
   "dependencies": {

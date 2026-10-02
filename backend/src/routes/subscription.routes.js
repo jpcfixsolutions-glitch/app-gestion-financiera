@@ -1,5 +1,6 @@
 import { Router } from "express"
 import { requireAuth } from "../middlewares/auth.middleware.js"
+import { AppError } from "../errors/app-error.js"
 import { getSubscriptionStatus, configureSubscription, renewSubscription } from "../services/subscription.service.js"
 
 const router = Router()
@@ -19,20 +20,14 @@ router.get("/status", async (req, res, next) => {
 // only creator can configure or renew
 const requireCreator = (req, res, next) => {
   if (req.authUser.rol !== "creator") {
-    res.status(403).json({ error: "Acceso denegado. Se requiere rol de creador." })
-    return
+    return next(new AppError("Acceso denegado", 403, "FORBIDDEN"))
   }
   next()
 }
 
 router.post("/configure", requireCreator, async (req, res, next) => {
   try {
-    const { day } = req.body
-    if (typeof day !== "number") {
-      res.status(400).json({ error: "El campo 'day' debe ser un número." })
-      return
-    }
-    const status = await configureSubscription(req.authUser.empresaId, day)
+    const status = await configureSubscription(req.authUser.empresaId, req.body?.day, req.authUser)
     res.json(status)
   } catch (error) {
     next(error)
@@ -41,7 +36,7 @@ router.post("/configure", requireCreator, async (req, res, next) => {
 
 router.post("/renew", requireCreator, async (req, res, next) => {
   try {
-    const status = await renewSubscription(req.authUser.empresaId)
+    const status = await renewSubscription(req.authUser.empresaId, req.authUser)
     res.json(status)
   } catch (error) {
     next(error)
