@@ -64,6 +64,10 @@ TURSO_AUTH_TOKEN=...
 AUTH_SECRET=un-secreto-aleatorio-de-al-menos-32-caracteres
 FRONTEND_URL=https://mi-frontend.vercel.app,https://mi-frontend-*.vercel.app
 INITIAL_USER_PASSWORD=solo-para-seed-o-db-user
+BUSINESS_TIMEZONE=America/Argentina/Buenos_Aires
+CREATOR_EMAIL=operador@ejemplo.com
+CREATOR_PASSWORD=secreto-unico-del-operador
+CREATOR_EMPRESA_ID=emp1
 PORT=3001
 ```
 
@@ -92,6 +96,7 @@ pnpm db:generate   # genera migraciones desde src/models/schema.js
 pnpm db:migrate    # aplica migraciones existentes
 pnpm db:seed       # carga datos iniciales de forma idempotente
 pnpm db:user       # crea o actualiza el usuario administrador inicial
+pnpm db:subscription-manager # crea o actualiza el operador interno, sin mostrar credenciales
 pnpm db:studio
 ```
 
